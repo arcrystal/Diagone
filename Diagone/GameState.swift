@@ -230,7 +230,6 @@ final class GameState: ObservableObject {
         }
     }
 
-
     // MARK: - Timer control
 
     /// Begins a new timer and marks the puzzle as started. If a timer
@@ -484,30 +483,56 @@ final class GameState: ObservableObject {
         // If a puzzle with explicit answers is loaded, validate the
         // board against those answers instead of performing a spell
         // check. The board must contain six rows and a diagonal that
-        // exactly match the expected words. The comparison is
-        // case-insensitive because the board stores uppercase letters.
+        // exactly match the expected words. Additionally, the letters
+        // along each non‑main diagonal must match the sequences
+        // derived from the answer rows. Comparisons are case‑insensitive.
         if !answerRows.isEmpty && !answerDiagonal.isEmpty {
-            // Build the row strings from the board
+            // Build the current row strings from the board. If any cell
+            // is empty the puzzle is incomplete and cannot be valid.
             var currentRows: [String] = []
+            currentRows.reserveCapacity(6)
             for row in 0..<6 {
                 var word = ""
                 for col in 0..<6 {
-                    guard let letter = board[row][col] else { return false }
+                    guard let letter = board[row][col] else {
+                        return false
+                    }
                     word += letter
                 }
                 currentRows.append(word.uppercased())
             }
-            // Compare all rows
-            guard currentRows.count == answerRows.count else { return false }
+            // Ensure the number of rows matches the expected answer count.
+            guard currentRows.count == answerRows.count else {
+                return false
+            }
+            // Compare every row against the expected answers.
             for (expected, actual) in zip(answerRows, currentRows) {
                 if expected.uppercased() != actual.uppercased() {
                     return false
                 }
             }
-            // Compare main diagonal
+            // Validate the non‑main diagonal letter sequences. Generate
+            // the sequences for the current board and compare them to
+            // the sequences derived from the answer rows (stored in
+            // `currentSequences`). Using `computeSequences` on the
+            // current rows ensures consistency with how the pieces are
+            // derived.
+            let boardSequences = computeSequences(from: currentRows)
+            // Both sequence arrays should have the same length.
+            guard boardSequences.count == currentSequences.count else {
+                return false
+            }
+            for (expectedSeq, actualSeq) in zip(currentSequences, boardSequences) {
+                if expectedSeq.uppercased() != actualSeq.uppercased() {
+                    return false
+                }
+            }
+            // Compare the main diagonal letters against the answer word.
             var diagWord = ""
             for i in 0..<6 {
-                guard let letter = board[i][i] else { return false }
+                guard let letter = board[i][i] else {
+                    return false
+                }
                 diagWord += letter
             }
             if diagWord.uppercased() != answerDiagonal.uppercased() {
