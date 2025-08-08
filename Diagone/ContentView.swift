@@ -238,28 +238,61 @@ struct ContentView: View {
     }
 
     /// Renders the horizontal scrolling list of chips representing
-    /// unplaced pieces. Selected chips are highlighted.
+    /// Renders the collection of draggable pieces. The pieces are split
+    /// into two rows by alternating indices to reflect the two sets of
+    /// five diagonals of each length. Tiles are hidden until the
+    /// puzzle has been started via the Start button. Selected chips are
+    /// highlighted.
     private var panelView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(game.pieces) { piece in
-                    // Hide the piece once placed on the board
-                    if piece.placedTargetId == nil {
-                        PieceChipView(
-                            piece: piece,
-                            isSelected: piece.id == selectedPieceId && !useDragMode,
-                            useDragMode: useDragMode,
-                            onTap: {
-                                // Toggle selection when tapping. In drag mode
-                                // selection still highlights diagonals but does
-                                // not trigger placement until drop.
-                                if selectedPieceId == piece.id {
-                                    selectedPieceId = nil
-                                } else {
-                                    selectedPieceId = piece.id
-                                }
+        // Precompute the two rows by alternating indices. These arrays
+        // exclude placed pieces when rendering below.
+        let row1Pieces = game.pieces.enumerated().compactMap { index, piece -> GamePiece? in
+            return index % 2 == 0 ? piece : nil
+        }
+        let row2Pieces = game.pieces.enumerated().compactMap { index, piece -> GamePiece? in
+            return index % 2 == 1 ? piece : nil
+        }
+        return Group {
+            if game.puzzleStarted {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(row1Pieces) { piece in
+                            if piece.placedTargetId == nil {
+                                PieceChipView(
+                                    piece: piece,
+                                    isSelected: piece.id == selectedPieceId && !useDragMode,
+                                    useDragMode: useDragMode,
+                                    onTap: {
+                                        // Toggle selection when tapping. In drag mode
+                                        // selection still highlights diagonals but does
+                                        // not trigger placement until drop.
+                                        if selectedPieceId == piece.id {
+                                            selectedPieceId = nil
+                                        } else {
+                                            selectedPieceId = piece.id
+                                        }
+                                    }
+                                )
                             }
-                        )
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        ForEach(row2Pieces) { piece in
+                            if piece.placedTargetId == nil {
+                                PieceChipView(
+                                    piece: piece,
+                                    isSelected: piece.id == selectedPieceId && !useDragMode,
+                                    useDragMode: useDragMode,
+                                    onTap: {
+                                        if selectedPieceId == piece.id {
+                                            selectedPieceId = nil
+                                        } else {
+                                            selectedPieceId = piece.id
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
