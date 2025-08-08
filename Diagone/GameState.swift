@@ -36,9 +36,34 @@ final class GameState: ObservableObject {
     /// can be observed by the UI to show a celebratory message.
     @Published var isGameWon: Bool = false
 
+    /// The number of seconds elapsed since the current puzzle started.
+    /// When the timer is not running this will remain at 0. The UI can
+    /// display this value to the player. It updates once per second
+    /// while the game is active.
+    @Published var elapsedSeconds: Int = 0
+
+    /// Indicates whether a puzzle has been started. This flag can be
+    /// observed by the UI to enable/disable controls such as the start
+    /// button or reset the board. It becomes true after calling
+    /// `startTimer()` and false again when the game is reset.
+    @Published var puzzleStarted: Bool = false
+
     /// A transient message describing the most recent error (e.g. a
     /// conflict or invalid row). The UI may display this to the user.
     @Published var message: String? = nil
+
+    // MARK: - Timer state
+
+    /// The date at which the current puzzle was started. When nil the
+    /// timer is not running. Used together with `elapsedSeconds` to
+    /// calculate the elapsed time. Not published because UI should
+    /// instead observe `elapsedSeconds`.
+    private var startDate: Date? = nil
+
+    /// A repeating timer updating the elapsed seconds. When non‑nil
+    /// the timer fires every second, incrementing `elapsedSeconds`. It
+    /// is automatically invalidated when the game resets or finishes.
+    private var timer: Timer? = nil
 
     // MARK: - Non‑published state
 
@@ -56,6 +81,66 @@ final class GameState: ObservableObject {
         configureDiagonals()
         configurePieces()
         buildCellMapping()
+    }
+
+    // MARK: - Timer control
+
+    /// Begins a new timer and marks the puzzle as started. If a timer
+    /// is already running it will be cancelled before starting a new
+    /// one. The game state is not reset automatically; callers should
+    /// call `resetGame()` first if they wish to start a fresh puzzle.
+    func startTimer() {
+        // Cancel any existing timer
+        timer?.invalidate()
+        timer = nil
+        startDate = Date()
+        elapsedSeconds = 0
+        puzzleStarted = true
+        // Schedule a repeating timer on the main run loop to update
+        // elapsed seconds. Use a weak self capture to avoid retaining
+        // the timer strongly.
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let strongSelf = self, let start = strongSelf.startDate else { return }
+            // Compute the number of whole seconds since the start date
+            let delta = Int(Date().timeIntervalSince(start))
+            if delta >= 0 {
+                strongSelf.elapsedSeconds = delta
+            }
+        }
+    }
+
+    /// Stops the running timer if there is one. This is called
+    /// automatically when the puzzle is solved or reset. It sets
+    /// `puzzleStarted` back to false and leaves `elapsedSeconds` with
+    /// the final value so the player can see their time.
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+        startDate = nil
+        puzzleStarted = false
+    }
+
+    // MARK: - Game reset
+
+    /// Resets the game state to its initial configuration. This clears
+    /// the board, reinitialises pieces and diagonals, hides the main
+    /// input and clears any messages or win state. Any running timer
+    /// will be stopped and elapsed time reset. This method can be
+    /// called to start over without recreating the GameState instance.
+    func resetGame() {
+        // Cancel any active timer and clear elapsed time
+        stopTimer()
+        elapsedSeconds = 0
+        // Reset core data structures
+        board = Array(repeating: Array(repeating: nil, count: 6), count: 6)
+        configureDiagonals()
+        configurePieces()
+        buildCellMapping()
+        // Clear main diagonal values
+        mainDiagonal = Array(repeating: nil, count: 6)
+        showMainInput = false
+        isGameWon = false
+        message = nil
     }
 
     // MARK: - Setup helpers
@@ -228,8 +313,10 @@ final class GameState: ObservableObject {
         }
         // Validate each row
         if checkAllRowsValid() {
+            // Successful completion: mark win and stop the timer
             isGameWon = true
             message = nil
+            stopTimer()
         } else {
             // Reset main diagonal cells to empty and clear values
             for i in 0..<6 {
@@ -237,7 +324,10 @@ final class GameState: ObservableObject {
                 mainDiagonal[i] = nil
             }
             isGameWon = false
-            message = "One or more rows do not form valid words."
+            // Provide a clear failure message and stop the timer so the
+            // player can see how long the incorrect attempt took.
+            message = "Incorrect solution. Please try again."
+            stopTimer()
         }
     }
 

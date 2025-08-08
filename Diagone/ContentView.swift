@@ -17,6 +17,37 @@ struct ContentView: View {
     // Controls presentation of the settings sheet
     @State private var showingSettings: Bool = false
 
+    /// Formats the elapsed time from the game state into a mm:ss string.
+    /// If no puzzle is active returns "00:00". Uses two‑digit fields
+    /// with leading zeros for a consistent width.
+    private var formattedTime: String {
+        let total = game.elapsedSeconds
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    /// Starts a fresh puzzle and timer. Resets any existing state,
+    /// deselects any selected piece and begins timing. Called when the
+    /// start button is tapped.
+    private func startPuzzle() {
+        // Reset the underlying game state to a clean slate
+        game.resetGame()
+        // Deselect any piece that might be highlighted
+        selectedPieceId = nil
+        // Begin timing
+        game.startTimer()
+    }
+
+    /// Resets the puzzle without starting a timer. Clears the board,
+    /// pieces and messages. The timer is also cancelled. Called when
+    /// the reset button is tapped.
+    private func resetPuzzle() {
+        game.resetGame()
+        // Deselect any selected piece
+        selectedPieceId = nil
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             // Title
@@ -34,6 +65,37 @@ struct ContentView: View {
                 .padding(.trailing, 16)
                 .accessibilityLabel("Settings")
             }
+
+            // Timer and control buttons
+            HStack(spacing: 20) {
+                // Start puzzle button appears when no puzzle is in progress
+                if !game.puzzleStarted {
+                    Button(action: startPuzzle) {
+                        Text("Start Puzzle")
+                            .fontWeight(.semibold)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(8)
+                    }
+                }
+                // Reset button always available
+                Button(action: resetPuzzle) {
+                    Text("Reset")
+                        .fontWeight(.semibold)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Color.red.opacity(0.2))
+                        .cornerRadius(8)
+                }
+                // Elapsed time display
+                if game.puzzleStarted || game.elapsedSeconds > 0 {
+                    Text("Time: \(formattedTime)")
+                        .font(.subheadline)
+                        .monospacedDigit()
+                }
+            }
+            .padding(.horizontal)
 
             // Game board
             boardView
@@ -210,34 +272,40 @@ struct ContentView: View {
         VStack(spacing: 8) {
             Text("Enter the main diagonal")
                 .font(.headline)
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
                 ForEach(0..<6, id: \ .self) { index in
                     TextField("", text: Binding(
                         get: {
                             game.mainDiagonal[index] ?? ""
                         },
                         set: { newValue in
-                            // Accept at most one character
+                            // Allow only one uppercase letter
                             let trimmed = newValue.uppercased().prefix(1)
                             game.mainDiagonal[index] = trimmed.isEmpty ? nil : String(trimmed)
-                            // Advance focus
+                            // Advance focus when a letter is entered
                             if !trimmed.isEmpty {
                                 if index < 5 {
                                     focusedField = index + 1
                                 } else {
                                     focusedField = nil
-                                    // When all six letters entered call validation
+                                    // When all six letters are provided validate the board
                                     let values = game.mainDiagonal.map { $0 ?? "" }
                                     game.setMainDiagonal(values: values)
                                 }
                             }
                         }
                     ))
-                    .frame(width: 40, height: 50)
-                    .textFieldStyle(.roundedBorder)
+                    .font(.title2)
                     .multilineTextAlignment(.center)
-                    .keyboardType(.alphabet)
+                    .padding(.vertical, 10)
+                    .frame(width: 48)
+                    // Custom rounded border for a smoother appearance
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.gray.opacity(0.4), lineWidth: 1)
+                    )
                     .focused($focusedField, equals: index)
+                    .keyboardType(.alphabet)
                     .disableAutocorrection(true)
                     .autocapitalization(.allCharacters)
                 }
