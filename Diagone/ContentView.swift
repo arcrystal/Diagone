@@ -36,6 +36,7 @@ struct ContentView: View {
         // sequences and answers. If loading fails the default puzzle
         // remains.
         game.loadPuzzle()
+        print("Puzzle loaded")
         // Deselect any piece that might be highlighted
         selectedPieceId = nil
         // Begin timing

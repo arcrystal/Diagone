@@ -137,9 +137,9 @@ final class GameState: ObservableObject {
         // 3
         sequences.append(String(r[0][4]) + String(r[1][5]))
         // 4
-        sequences.append(String(r[0][3]) + String(r[1][4]) + String(r[2][3]))
+        sequences.append(String(r[3][0]) + String(r[4][1]) + String(r[5][2]))
         // 5
-        sequences.append(String(r[3][0]) + String(r[4][1]) + String(r[3][2]))
+        sequences.append(String(r[0][3]) + String(r[1][4]) + String(r[2][5]))
         // 6
         sequences.append(String(r[2][0]) + String(r[3][1]) + String(r[4][2]) + String(r[5][3]))
         // 7
@@ -163,37 +163,37 @@ final class GameState: ObservableObject {
     /// resets the game state to initialise the board and pieces with
     /// the new puzzle.
     func loadPuzzle(named puzzleName: String? = nil) {
-        // Attempt to locate the JSON file in the main bundle. Because
-        // SwiftUI previews and tests may not bundle files, also check
-        // the current working directory.
-        let fileManager = FileManager.default
-        var url: URL? = nil
-        // First try bundle URL
-        #if os(iOS)
-        if let bundleUrl = Bundle.main.url(forResource: "puzzles", withExtension: "json", subdirectory: "Puzzles") {
-            url = bundleUrl
+        let fm = FileManager.default
+        var url: URL?
+
+        // 1) Most common: file is copied to bundle root (flattened)
+        if let u = Bundle.main.url(forResource: "puzzles", withExtension: "json") {
+            url = u
         }
-        #endif
-        // Fallback to working directory if necessary
+        // 2) If you added a *Folder Reference* (blue folder) called "Puzzles"
+        else if let u = Bundle.main.url(forResource: "puzzles", withExtension: "json", subdirectory: "Puzzles") {
+            url = u
+        }
+        // 3) Last resort: scan bundle for any puzzles.json (handles odd project setups)
+        else if let urls = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil),
+                let u = urls.first(where: { $0.lastPathComponent.lowercased() == "puzzles.json" }) {
+            url = u
+        }
+
+        // (Optional) Keep your dev/test fallbacks for unit tests on macOS
         if url == nil {
-            let cwd = fileManager.currentDirectoryPath
-            // Check for Puzzles/puzzles.json in the working directory
-            let directPath = URL(fileURLWithPath: cwd).appendingPathComponent("Puzzles/puzzles.json")
-            if fileManager.fileExists(atPath: directPath.path) {
-                url = directPath
-            } else {
-                // Also check for Diagone/Puzzles/puzzles.json (common when
-                // resources reside alongside the app sources)
-                let nested = URL(fileURLWithPath: cwd).appendingPathComponent("Diagone/Puzzles/puzzles.json")
-                if fileManager.fileExists(atPath: nested.path) {
-                    url = nested
-                }
-            }
+            let cwd = fm.currentDirectoryPath
+            let p1 = URL(fileURLWithPath: cwd).appendingPathComponent("Puzzles/puzzles.json")
+            let p2 = URL(fileURLWithPath: cwd).appendingPathComponent("Diagone/Puzzles/puzzles.json")
+            if fm.fileExists(atPath: p1.path) { url = p1 }
+            else if fm.fileExists(atPath: p2.path) { url = p2 }
         }
+
         guard let fileUrl = url else {
-            // Failed to find the puzzles file; leave defaults unchanged
+            print("puzzles.json not found in app bundle. Check Target Membership / Copy Bundle Resources.")
             return
         }
+
         do {
             let data = try Data(contentsOf: fileUrl)
             // Decode as [String: [String]] dictionary. Accept both
@@ -219,6 +219,8 @@ final class GameState: ObservableObject {
             let rows = Array(words[0..<6]).map { $0.uppercased() }
             answerRows = rows
             answerDiagonal = words[6].uppercased()
+            print("answerRows", answerRows)
+            print("answerDiagonal", answerDiagonal)
             // Compute new sequences from the rows
             currentSequences = computeSequences(from: rows)
             // Reset the game state to apply the new sequences and clear
@@ -450,128 +452,110 @@ final class GameState: ObservableObject {
     /// - Parameter values: An array of six uppercase letters.
     func setMainDiagonal(values: [String]) {
         guard values.count == 6 else { return }
-        // Write values onto the board
+
+        // Write values onto the board immediately
         for i in 0..<6 {
             let letter = values[i].uppercased()
             board[i][i] = letter
             mainDiagonal[i] = letter
         }
-        // Validate each row
-        if checkAllRowsValid() {
-            // Successful completion: mark win and stop the timer
-            isGameWon = true
-            message = nil
-            stopTimer()
-        } else {
-            // Reset main diagonal cells to empty and clear values
-            for i in 0..<6 {
-                board[i][i] = nil
-                mainDiagonal[i] = nil
+
+        // Defer validation so the last keystroke is registered in the UI/state
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            if self.checkAllRowsValid() {
+                self.isGameWon = true
+                self.message = nil
+                self.stopTimer()
+            } else {
+                // Revert only the main diagonal on failure
+                for i in 0..<6 {
+                    self.board[i][i] = nil
+                    self.mainDiagonal[i] = nil
+                }
+                self.isGameWon = false
+                self.message = "Incorrect solution. Please try again."
+                // timer keeps running
             }
-            isGameWon = false
-            // Provide a clear failure message. The timer continues so
-            // the player may attempt again without losing their elapsed time.
-            message = "Incorrect solution. Please try again."
-            // Do not stop the timer on failure
         }
     }
 
-    /// Validates that all six rows currently on the board form real
-    /// English words. Any empty cell will cause validation to fail.
-    /// This uses `UITextChecker` which relies on the system dictionary.
+
+    /// Strictly validates the board against the loaded puzzle:
+    /// - All 6 rows must equal `answerRows[0...5]`
+    /// - Main diagonal must equal `answerDiagonal`
+    /// - Every non-main diagonal must match letters implied by the rows
+    /// Any deviation returns false.
     private func checkAllRowsValid() -> Bool {
-        // If a puzzle with explicit answers is loaded, validate the
-        // board against those answers instead of performing a spell
-        // check. The board must contain six rows and a diagonal that
-        // exactly match the expected words. Additionally, the letters
-        // along each non‑main diagonal must match the sequences
-        // derived from the answer rows. Comparisons are case‑insensitive.
-        if !answerRows.isEmpty && !answerDiagonal.isEmpty {
-            // Build the current row strings from the board. If any cell
-            // is empty the puzzle is incomplete and cannot be valid.
-            var currentRows: [String] = []
-            currentRows.reserveCapacity(6)
-            for row in 0..<6 {
-                var word = ""
-                for col in 0..<6 {
-                    guard let letter = board[row][col] else {
-                        return false
-                    }
-                    word += letter
-                }
-                currentRows.append(word.uppercased())
-            }
-            // Ensure the number of rows matches the expected answer count.
-            guard currentRows.count == answerRows.count else {
-                return false
-            }
-            // Compare every row against the expected answers.
-            for (expected, actual) in zip(answerRows, currentRows) {
-                if expected.uppercased() != actual.uppercased() {
-                    return false
-                }
-            }
-            // Validate the non‑main diagonal letter sequences. Generate
-            // the sequences for the current board and compare them to
-            // the sequences derived from the answer rows (stored in
-            // `currentSequences`). Using `computeSequences` on the
-            // current rows ensures consistency with how the pieces are
-            // derived.
-            let boardSequences = computeSequences(from: currentRows)
-            // Both sequence arrays should have the same length.
-            guard boardSequences.count == currentSequences.count else {
-                return false
-            }
-            for (expectedSeq, actualSeq) in zip(currentSequences, boardSequences) {
-                if expectedSeq.uppercased() != actualSeq.uppercased() {
-                    return false
-                }
-            }
-            // Compare the main diagonal letters against the answer word.
-            var diagWord = ""
-            for i in 0..<6 {
-                guard let letter = board[i][i] else {
-                    return false
-                }
-                diagWord += letter
-            }
-            if diagWord.uppercased() != answerDiagonal.uppercased() {
-                return false
-            }
-            return true
+        // Must have a loaded puzzle
+        guard !answerRows.isEmpty, !answerDiagonal.isEmpty else {
+            print("test0")
+            return false
         }
-        // Otherwise fall back to dictionary-based validation
-        for row in 0..<6 {
+        // Normalize expected answers once
+        let rowsU = answerRows.map { $0.uppercased() }
+        let diagU = answerDiagonal.uppercased()
+
+        // Sanity: each row must have at least 6 chars
+        guard rowsU.count == 6, rowsU.allSatisfy({ $0.count >= 6 }) else {
+            print("Guard 1")
+            return false
+        }
+
+        // ---- Rows must match exactly
+        for r in 0..<6 {
             var word = ""
-            for col in 0..<6 {
-                guard let letter = board[row][col] else { return false }
-                word += letter
+            for c in 0..<6 {
+                guard let ch = board[r][c] else {
+                    print("Guard 2")
+                    return false
+                }
+                word += ch
             }
-            if !isRealWord(word: word) {
+            if word.uppercased() != rowsU[r] {
+                print(word, "!=",  rowsU[r])
                 return false
             }
         }
+
+        // ---- Main diagonal must match exactly
+        var main = ""
+        for i in 0..<6 {
+            guard let ch = board[i][i] else {
+                print("Guard 3")
+                return false
+            }
+            main += ch
+        }
+        if main.uppercased() != diagU {
+            print(main, "!=",  diagU)
+            return false
+        }
+
+        // ---- Every non-main diagonal must match the letters implied by rows
+        // Build quick-access char arrays for expected rows (ASCII A–Z assumed)
+        let rowChars: [[Character]] = rowsU.map { Array($0) }
+
+        for target in targets { // targets are non-main diagonals by construction
+            var placed = ""
+            var expected = ""
+            for cell in target.cells {
+                guard let ch = board[cell.row][cell.col] else {
+                    print("Guard 4")
+                    return false
+                }
+                placed += ch.uppercased()
+                // expected letter is simply the one at (row, col) in the answer rows
+                expected.append(rowChars[cell.row][cell.col])
+            }
+            if placed != String(expected) {
+                print(placed, "!=", String(expected))
+                return false
+            }
+        }
+
         return true
     }
 
-    /// Determines whether the supplied string is a valid English word
-    /// according to `UITextChecker`. An empty or one‑character word
-    /// always returns false to avoid trivial matches.
-    ///
-    /// - Parameter word: A word to validate.
-    /// - Returns: `true` if the word is recognised as correctly
-    ///   spelled, otherwise `false`.
-    func isRealWord(word: String) -> Bool {
-        guard word.count > 1 else { return false }
-        let checker = UITextChecker()
-        let range = NSRange(location: 0, length: word.utf16.count)
-        let misspelledRange = checker.rangeOfMisspelledWord(
-            in: word,
-            range: range,
-            startingAt: 0,
-            wrap: false,
-            language: "en"
-        )
-        return misspelledRange.location == NSNotFound
-    }
 }
