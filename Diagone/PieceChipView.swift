@@ -13,15 +13,11 @@ struct PieceChipView: View {
 
     var body: some View {
         let chip = HStack(spacing: 4) {
+            // Show only the letter sequence on the chip. The numeric
+            // length indicator has been removed per user request.
             Text(piece.letters)
                 .font(.system(size: 20, weight: .semibold, design: .monospaced))
                 .foregroundColor(.primary)
-            Text("\(piece.length)")
-                .font(.system(size: 12, weight: .bold))
-                .padding(4)
-                .background(Color(UIColor.systemGray5))
-                .clipShape(Circle())
-                .foregroundColor(.secondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -52,7 +48,7 @@ struct PieceChipView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(piece.letters), length \(piece.length)")
+        .accessibilityLabel("\(piece.letters)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
