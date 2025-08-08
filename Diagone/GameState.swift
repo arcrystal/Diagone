@@ -23,6 +23,25 @@ final class GameState: ObservableObject {
     /// The collection of draggable pieces available for placement.
     @Published var pieces: [GamePiece] = []
 
+    /// The canonical list of letter sequences used to seed the
+    /// draggable pieces. By default this is the demo set used in the
+    /// original version of the game. When a puzzle is loaded from
+    /// JSON this array is replaced by the sequences derived from the
+    /// selected puzzle.
+    private var currentSequences: [String] = [
+        "M", "E", "RA", "SE", "ALD", "WEN",
+        "FAGI", "RBEY", "RAYAA", "HBLAN"
+    ]
+
+    /// The expected six row words for the currently loaded puzzle.
+    /// This array is empty when no puzzle is loaded. Words are
+    /// uppercased for consistent comparison.
+    private(set) var answerRows: [String] = []
+
+    /// The expected diagonal word for the currently loaded puzzle.
+    /// It is uppercased for consistent comparison.
+    private(set) var answerDiagonal: String = ""
+
     /// The six values entered on the main diagonal by the player. Each
     /// element is either `nil` (before input) or a single uppercase
     /// character. When all ten pieces are placed this becomes editable.
@@ -82,6 +101,135 @@ final class GameState: ObservableObject {
         configurePieces()
         buildCellMapping()
     }
+
+    // MARK: - Puzzle loading
+
+    /// Computes the ten diagonal letter sequences for a puzzle from
+    /// the supplied row words. The mapping follows the specification:
+    ///
+    /// - Sequence 0: first letter of row 6
+    /// - Sequence 1: sixth letter of row 1
+    /// - Sequence 2: first letter of row 5 + second letter of row 6
+    /// - Sequence 3: fifth letter of row 1 + sixth letter of row 2
+    /// - Sequence 4: fourth letter of row 1 + fifth letter of row 2 + fourth letter of row 3
+    /// - Sequence 5: first letter of row 4 + second letter of row 5 + third letter of row 4
+    /// - Sequence 6: first letter of row 3 + second letter of row 4 + third letter of row 5 + fourth letter of row 6
+    /// - Sequence 7: third letter of row 1 + fourth letter of row 2 + fifth letter of row 3 + sixth letter of row 4
+    /// - Sequence 8: first letter of row 2 + second letter of row 3 + third letter of row 4 + fourth letter of row 5 + fifth letter of row 6
+    /// - Sequence 9: second letter of row 1 + third letter of row 2 + fourth letter of row 3 + fifth letter of row 4 + sixth letter of row 5
+    ///
+    /// - Parameter rows: An array of six uppercase words representing the
+    ///   target rows. Indices are assumed to be valid (i.e. each word
+    ///   has at least six characters).
+    /// - Returns: An array of ten letter sequences corresponding to the
+    ///   diagonals.
+    private func computeSequences(from rows: [String]) -> [String] {
+        guard rows.count == 6 else { return currentSequences }
+        // Convert all rows to arrays of characters for easier indexing
+        let r = rows.map { Array($0.uppercased()) }
+        var sequences: [String] = []
+        // 0
+        sequences.append(String(r[5][0]))
+        // 1
+        sequences.append(String(r[0][5]))
+        // 2
+        sequences.append(String(r[4][0]) + String(r[5][1]))
+        // 3
+        sequences.append(String(r[0][4]) + String(r[1][5]))
+        // 4
+        sequences.append(String(r[0][3]) + String(r[1][4]) + String(r[2][3]))
+        // 5
+        sequences.append(String(r[3][0]) + String(r[4][1]) + String(r[3][2]))
+        // 6
+        sequences.append(String(r[2][0]) + String(r[3][1]) + String(r[4][2]) + String(r[5][3]))
+        // 7
+        sequences.append(String(r[0][2]) + String(r[1][3]) + String(r[2][4]) + String(r[3][5]))
+        // 8
+        sequences.append(String(r[1][0]) + String(r[2][1]) + String(r[3][2]) + String(r[4][3]) + String(r[5][4]))
+        // 9
+        sequences.append(String(r[0][1]) + String(r[1][2]) + String(r[2][3]) + String(r[3][4]) + String(r[4][5]))
+        return sequences
+    }
+
+    /// Loads puzzles from a JSON file named `puzzles.json` located in
+    /// the `Puzzles` directory at the app's bundle root. The JSON
+    /// format should map puzzle names to an array of seven uppercase
+    /// words: the first six are row words and the seventh is the
+    /// diagonal word. If a `puzzleName` is supplied the puzzle with
+    /// that key is selected; otherwise the first entry is used.
+    ///
+    /// After loading, this method sets `answerRows`, `answerDiagonal`
+    /// and updates `currentSequences` based on the row words. It then
+    /// resets the game state to initialise the board and pieces with
+    /// the new puzzle.
+    func loadPuzzle(named puzzleName: String? = nil) {
+        // Attempt to locate the JSON file in the main bundle. Because
+        // SwiftUI previews and tests may not bundle files, also check
+        // the current working directory.
+        let fileManager = FileManager.default
+        var url: URL? = nil
+        // First try bundle URL
+        #if os(iOS)
+        if let bundleUrl = Bundle.main.url(forResource: "puzzles", withExtension: "json", subdirectory: "Puzzles") {
+            url = bundleUrl
+        }
+        #endif
+        // Fallback to working directory if necessary
+        if url == nil {
+            let cwd = fileManager.currentDirectoryPath
+            // Check for Puzzles/puzzles.json in the working directory
+            let directPath = URL(fileURLWithPath: cwd).appendingPathComponent("Puzzles/puzzles.json")
+            if fileManager.fileExists(atPath: directPath.path) {
+                url = directPath
+            } else {
+                // Also check for Diagone/Puzzles/puzzles.json (common when
+                // resources reside alongside the app sources)
+                let nested = URL(fileURLWithPath: cwd).appendingPathComponent("Diagone/Puzzles/puzzles.json")
+                if fileManager.fileExists(atPath: nested.path) {
+                    url = nested
+                }
+            }
+        }
+        guard let fileUrl = url else {
+            // Failed to find the puzzles file; leave defaults unchanged
+            return
+        }
+        do {
+            let data = try Data(contentsOf: fileUrl)
+            // Decode as [String: [String]] dictionary. Accept both
+            // single-quoted and double-quoted JSON by replacing single
+            // quotes before decoding.
+            let jsonString = String(decoding: data, as: UTF8.self)
+            // Replace single quotes with double quotes for valid JSON
+            let normalized = jsonString.replacingOccurrences(of: "'", with: "\"")
+            guard let normalizedData = normalized.data(using: .utf8) else { return }
+            let decoder = JSONDecoder()
+            let puzzles = try decoder.decode([String: [String]].self, from: normalizedData)
+            // Select puzzle
+            let key: String
+            if let name = puzzleName, puzzles.keys.contains(name) {
+                key = name
+            } else if let firstKey = puzzles.keys.first {
+                key = firstKey
+            } else {
+                return
+            }
+            guard let words = puzzles[key], words.count >= 7 else { return }
+            // Assign answer rows and diagonal word
+            let rows = Array(words[0..<6]).map { $0.uppercased() }
+            answerRows = rows
+            answerDiagonal = words[6].uppercased()
+            // Compute new sequences from the rows
+            currentSequences = computeSequences(from: rows)
+            // Reset the game state to apply the new sequences and clear
+            // any existing placements. Do not start a timer here.
+            resetGame()
+        } catch {
+            // If loading fails, silently ignore and retain defaults
+            return
+        }
+    }
+
 
     // MARK: - Timer control
 
@@ -179,11 +327,9 @@ final class GameState: ObservableObject {
     /// a puzzle generator. The letters here form a simple set for
     /// demonstration and testing.
     private func configurePieces() {
-        let sequences: [String] = [
-            "M", "E", "RA", "SE", "ALD", "WEN",
-            "FAGI", "RBEY", "RAYAA", "HBLAN"
-        ]
-        pieces = sequences.map { seq in
+        // Use the currentSequences array to seed pieces. This allows
+        // puzzles loaded from JSON to override the default sequences.
+        pieces = currentSequences.map { seq in
             GamePiece(id: UUID(), letters: seq, placedTargetId: nil)
         }
     }
@@ -324,10 +470,10 @@ final class GameState: ObservableObject {
                 mainDiagonal[i] = nil
             }
             isGameWon = false
-            // Provide a clear failure message and stop the timer so the
-            // player can see how long the incorrect attempt took.
+            // Provide a clear failure message. The timer continues so
+            // the player may attempt again without losing their elapsed time.
             message = "Incorrect solution. Please try again."
-            stopTimer()
+            // Do not stop the timer on failure
         }
     }
 
@@ -335,6 +481,41 @@ final class GameState: ObservableObject {
     /// English words. Any empty cell will cause validation to fail.
     /// This uses `UITextChecker` which relies on the system dictionary.
     private func checkAllRowsValid() -> Bool {
+        // If a puzzle with explicit answers is loaded, validate the
+        // board against those answers instead of performing a spell
+        // check. The board must contain six rows and a diagonal that
+        // exactly match the expected words. The comparison is
+        // case-insensitive because the board stores uppercase letters.
+        if !answerRows.isEmpty && !answerDiagonal.isEmpty {
+            // Build the row strings from the board
+            var currentRows: [String] = []
+            for row in 0..<6 {
+                var word = ""
+                for col in 0..<6 {
+                    guard let letter = board[row][col] else { return false }
+                    word += letter
+                }
+                currentRows.append(word.uppercased())
+            }
+            // Compare all rows
+            guard currentRows.count == answerRows.count else { return false }
+            for (expected, actual) in zip(answerRows, currentRows) {
+                if expected.uppercased() != actual.uppercased() {
+                    return false
+                }
+            }
+            // Compare main diagonal
+            var diagWord = ""
+            for i in 0..<6 {
+                guard let letter = board[i][i] else { return false }
+                diagWord += letter
+            }
+            if diagWord.uppercased() != answerDiagonal.uppercased() {
+                return false
+            }
+            return true
+        }
+        // Otherwise fall back to dictionary-based validation
         for row in 0..<6 {
             var word = ""
             for col in 0..<6 {

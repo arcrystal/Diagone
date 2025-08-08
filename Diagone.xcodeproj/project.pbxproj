@@ -24,25 +24,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		57AED2DA2E45A2CE00086070 /* Diagone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Diagone.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		57AED2E72E45A2D000086070 /* DiagoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiagoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		57AED2F12E45A2D000086070 /* DiagoneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiagoneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		57AED2DA2E45A2CE00086070 /* Diagone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Diagone.app; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/Diagone.app"; sourceTree = "<absolute>"; };
+		57AED2E72E45A2D000086070 /* DiagoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = DiagoneTests.xctest; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/Diagone.app/PlugIns/DiagoneTests.xctest"; sourceTree = "<absolute>"; };
+		57AED2F12E45A2D000086070 /* DiagoneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = DiagoneUITests.xctest; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/DiagoneUITests-Runner.app/PlugIns/DiagoneUITests.xctest"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		57AED2DC2E45A2CE00086070 /* Diagone */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Diagone;
-			sourceTree = "<group>";
-		};
-		57AED2EA2E45A2D000086070 /* DiagoneTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DiagoneTests;
-			sourceTree = "<group>";
-		};
-		57AED2F42E45A2D000086070 /* DiagoneUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DiagoneUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -76,20 +66,23 @@
 			isa = PBXGroup;
 			children = (
 				57AED2DC2E45A2CE00086070 /* Diagone */,
-				57AED2EA2E45A2D000086070 /* DiagoneTests */,
-				57AED2F42E45A2D000086070 /* DiagoneUITests */,
-				57AED2DB2E45A2CE00086070 /* Products */,
+				57AED46F2E45C8CC00086070 /* DiagoneTests 3 */,
+				57AED4702E45C8CC00086070 /* DiagoneUITests 3 */,
 			);
 			sourceTree = "<group>";
 		};
-		57AED2DB2E45A2CE00086070 /* Products */ = {
+		57AED46F2E45C8CC00086070 /* DiagoneTests 3 */ = {
 			isa = PBXGroup;
 			children = (
-				57AED2DA2E45A2CE00086070 /* Diagone.app */,
-				57AED2E72E45A2D000086070 /* DiagoneTests.xctest */,
-				57AED2F12E45A2D000086070 /* DiagoneUITests.xctest */,
 			);
-			name = Products;
+			path = "DiagoneTests 3";
+			sourceTree = "<group>";
+		};
+		57AED4702E45C8CC00086070 /* DiagoneUITests 3 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "DiagoneUITests 3";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -130,9 +123,6 @@
 			dependencies = (
 				57AED2E92E45A2D000086070 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				57AED2EA2E45A2D000086070 /* DiagoneTests */,
-			);
 			name = DiagoneTests;
 			packageProductDependencies = (
 			);
@@ -152,9 +142,6 @@
 			);
 			dependencies = (
 				57AED2F32E45A2D000086070 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				57AED2F42E45A2D000086070 /* DiagoneUITests */,
 			);
 			name = DiagoneUITests;
 			packageProductDependencies = (
@@ -197,7 +184,7 @@
 			mainGroup = 57AED2D12E45A2CE00086070;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 57AED2DB2E45A2CE00086070 /* Products */;
+			productRefGroup = 57AED2D12E45A2CE00086070;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

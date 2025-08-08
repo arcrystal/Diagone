@@ -31,8 +31,11 @@ struct ContentView: View {
     /// deselects any selected piece and begins timing. Called when the
     /// start button is tapped.
     private func startPuzzle() {
-        // Reset the underlying game state to a clean slate
-        game.resetGame()
+        // Load the first available puzzle from the JSON. This will
+        // reset the game state and prepare the board with the new
+        // sequences and answers. If loading fails the default puzzle
+        // remains.
+        game.loadPuzzle()
         // Deselect any piece that might be highlighted
         selectedPieceId = nil
         // Begin timing
@@ -345,5 +348,16 @@ struct ContentView: View {
             }
         }
         .padding(.top, 8)
+        // Automatically focus the first text field when the main input
+        // view appears. This makes it easier for users to begin typing
+        // without needing to tap the first box.
+        .onAppear {
+            // Delay setting focus slightly to ensure the view has
+            // finished laying out. Without the dispatch queue the
+            // focus may not stick reliably.
+            DispatchQueue.main.async {
+                self.focusedField = 0
+            }
+        }
     }
 }
