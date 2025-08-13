@@ -1,0 +1,68 @@
+# ---- macOS cruft ----
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.lock
+
+# ---- Xcode ----
+build/
+DerivedData/
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Per-user project files (keep shared settings)
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# iOS device logs
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ---- Swift Package Manager ----
+.build/
+.swiftpm/
+
+# Keep Package.resolved for reproducible builds (do NOT ignore):
+# Package.resolved
+
+# ---- CocoaPods (if used) ----
+# Comment out if you commit Pods
+Pods/
+# Keep lockfile
+!Podfile.lock
+
+# ---- Carthage (if used) ----
+Carthage/Build/
+# Carthage/Checkouts/   # uncomment if you don't vendor sources
+
+# ---- Accio (if used) ----
+Dependencies/
+.accio/
+
+# ---- Fastlane (if used) ----
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# ---- Swift Playgrounds ----
+timeline.xctimeline
+playground.xcworkspace
+
+# ---- Tools caches ----
+.swiftlint_cache
+
+# ---- Misc editors ----
+*.orig
+*.tmp
