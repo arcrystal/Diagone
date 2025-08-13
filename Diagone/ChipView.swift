@@ -7,54 +7,76 @@ import UniformTypeIdentifiers
 /// tactile feedback. When the game hasn’t started yet the chips are hidden.
 struct ChipView: View {
     @EnvironmentObject private var viewModel: GameViewModel
+    /// The piece this chip represents. Contains the letters and identifier.
     let piece: GamePiece
+    /// Size of one board cell. Controls the size of the chip’s letters and
+    /// the diagonal footprint.
     let cellSize: CGFloat
+    /// Whether the chip should be hidden. Chips remain hidden until the player
+    /// presses the start button.
     var hidden: Bool
-
+    /// Internal state tracking whether the chip is currently being dragged. Used
+    /// to animate the scale and shadow.
     @State private var isDragging = false
+    /// Offset applied during manual dragging
     @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         Group {
-            if !hidden {
-                diagonalChip
+            if hidden {
+                EmptyView()
+            } else {
+                // Wrap in a ZStack so rotation doesn’t clip the chip
+                ZStack {
+                    // Render letters in an HStack; we rotate the entire stack to
+                    // achieve the diagonal orientation. We apply no spacing
+                    // between letters so they sit flush along the diagonal.
+                    HStack(spacing: 0) {
+                        ForEach(Array(piece.letters.enumerated()), id: \.offset) { index, element in
+                            let ch = String(element)
+                            Text(ch)
+                                .font(.system(size: cellSize * 0.6, weight: .bold))
+                                .foregroundColor(.primary)
+                                .frame(width: cellSize, height: cellSize)
+                                .background(
+                                    RoundedRectangle(cornerRadius: cellSize * 0.15, style: .continuous)
+                                        .fill(Color(.systemBackground))
+                                )
+                        }
+                    }
+                    .rotationEffect(.degrees(45))
+                }
+                .frame(width: CGFloat(piece.length) * cellSize * sqrt(2), height: CGFloat(piece.length) * cellSize * sqrt(2))
+                .scaleEffect(isDragging ? 1.1 : 1.0)
+                .offset(dragOffset)
+                .shadow(color: Color.black.opacity(isDragging ? 0.3 : 0.15), radius: isDragging ? 6 : 4, x: 0, y: isDragging ? 4 : 2)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isDragging)
+                // Custom drag gesture that begins immediately and updates the view model
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                        .onChanged { value in
+                            if !isDragging {
+                                isDragging = true
+                                viewModel.beginDragging(pieceId: piece.id)
+                            }
+                            dragOffset = value.translation
+                            viewModel.updateDrag(globalLocation: value.location)
+                        }
+                        .onEnded { _ in
+                            viewModel.finishDrag()
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
+                                isDragging = false
+                                dragOffset = .zero
+                            }
+                        }
+                )
+                .onDisappear {
+                    // Reset dragging state on disappear
+                    isDragging = false
+                    dragOffset = .zero
+                }
             }
         }
-    }
-
-    private var diagonalChip: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(piece.letters.enumerated()), id: \.offset) { index, ch in
-                Text(String(ch))
-                    .font(.system(size: cellSize * 0.6, weight: .bold))
-                    .frame(width: cellSize, height: cellSize)
-                    .background(RoundedRectangle(cornerRadius: cellSize * 0.15).fill(Color(.systemBackground)))
-            }
-        }
-        .rotationEffect(.degrees(45))
-        .scaleEffect(isDragging ? 1.1 : 1.0)
-        .shadow(radius: isDragging ? 6 : 3)
-        .contentShape(Rectangle())                    // big hit area
-        .highPriorityGesture(                         // start immediately
-            DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                .onChanged { v in
-                    if !isDragging {
-                        isDragging = true
-                        viewModel.beginDragging(pieceId: piece.id)
-                    }
-                    dragOffset = v.translation
-                    viewModel.updateDrag(globalLocation: v.location)
-                }
-                .onEnded { _ in
-                    viewModel.finishDrag()
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
-                        isDragging = false
-                        dragOffset = .zero
-                    }
-                }
-        )
-        .offset(dragOffset)                           // follow finger
-        .zIndex(isDragging ? 10 : 0)
     }
 }
 
@@ -79,7 +101,7 @@ fileprivate struct ChipDragPreview: View {
                         )
                 }
             }
-            .rotationEffect(.degrees(-45))
+            .rotationEffect(.degrees(45))
         }
         .frame(width: CGFloat(piece.length) * cellSize * sqrt(2), height: CGFloat(piece.length) * cellSize * sqrt(2))
     }

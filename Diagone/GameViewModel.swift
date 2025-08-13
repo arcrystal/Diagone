@@ -28,14 +28,22 @@ public final class GameViewModel: ObservableObject {
     /// The letters entered into the six cells of the main diagonal input. When
     /// changed the view model writes these letters into the engine’s state.
     @Published public var mainInput: [String] = Array(repeating: "", count: 6)
-    
-    @Published var dragGlobalLocation: CGPoint?
-    @Published var boardFrameGlobal: CGRect = .zero
 
     /// The identifier of the piece currently being dragged from the panel. When
     /// non‑nil the board highlights only those diagonals whose lengths match
     /// the dragged piece and are available. Cleared when the drag completes.
     @Published public var draggingPieceId: String? = nil
+
+    /// The global screen coordinates of the current drag location. Updated by
+    /// the chip's `DragGesture` on every movement. The board uses this to
+    /// calculate which diagonal the user is hovering over.
+    @Published public var dragGlobalLocation: CGPoint? = nil
+
+    /// The frame of the board in global coordinates. This is set by the
+    /// `BoardView` via a `GeometryReader` so that drag positions can be
+    /// converted into board space when determining hover state. It will be
+    /// `.zero` until the board appears on screen.
+    @Published public var boardFrameGlobal: CGRect = .zero
 
     private var timerCancellable: AnyCancellable?
     private var startDate: Date?
@@ -45,54 +53,15 @@ public final class GameViewModel: ObservableObject {
         self.engine = engine
         // Try to restore from saved progress
         if let restored = Self.loadSavedState(for: engine.configuration) {
-            engine.state = restored
+            // Restore must go through the engine to recompute board and clear
+            // history. Use a dedicated restore API so that state invariants are
+            // maintained.
+            engine.restore(restored)
             // Determine if the main input should be visible based on number of placed pieces
             let allPlaced = engine.state.targets.allSatisfy { $0.pieceId != nil }
             self.showMainInput = allPlaced
             self.mainInput = engine.state.mainDiagonal.value
         }
-    }
-    
-    @MainActor func beginDragging(pieceId: String) {
-        if draggingPieceId != pieceId { draggingPieceId = pieceId }
-    }
-
-    @MainActor func updateDrag(globalLocation: CGPoint) {
-        dragGlobalLocation = globalLocation
-        guard boardFrameGlobal != .zero,
-              let pid = draggingPieceId else {
-            dragHoverTargetId = nil
-            return
-        }
-        // Board-local point
-        let p = CGPoint(x: globalLocation.x - boardFrameGlobal.minX,
-                        y: globalLocation.y - boardFrameGlobal.minY)
-        guard p.x >= 0, p.y >= 0,
-              p.x <= boardFrameGlobal.width, p.y <= boardFrameGlobal.height else {
-            dragHoverTargetId = nil; return
-        }
-        let cell = boardFrameGlobal.width / 6.0 // no spacing in your grid
-        let valid = Set(engine.validTargets(for: pid))
-        dragHoverTargetId = engine.state.targets
-            .filter { valid.contains($0.id) }
-            .first { t in bounds(for: t, cell: cell).contains(p) }?.id
-    }
-
-    @MainActor func finishDrag() {
-        defer { draggingPieceId = nil; dragGlobalLocation = nil; dragHoverTargetId = nil }
-        guard let pid = draggingPieceId, let tid = dragHoverTargetId else { return }
-        _ = engine.placePiece(pieceId: pid, on: tid)
-    }
-
-    // bounding rect around diagonal cells (fast hit test)
-    private func bounds(for t: GameTarget, cell: CGFloat) -> CGRect {
-        let rows = t.cells.map(\.row), cols = t.cells.map(\.col)
-        guard let minR = rows.min(), let maxR = rows.max(),
-              let minC = cols.min(), let maxC = cols.max() else { return .zero }
-        return CGRect(x: CGFloat(minC) * cell,
-                      y: CGFloat(minR) * cell,
-                      width: CGFloat(maxC - minC + 1) * cell,
-                      height: CGFloat(maxR - minR + 1) * cell)
     }
 
     /// Starts the timer and reveals the puzzle. Chips become draggable only after
@@ -303,10 +272,62 @@ public final class GameViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Dragging Hooks
+
+    @MainActor
+    public func beginDragging(pieceId: String) {
+        draggingPieceId = pieceId
+        dragHoverTargetId = nil
+    }
+
     /// Invoked by chips when the drag operation completes, regardless of whether
     /// the drop succeeds. Resets both the dragging piece and the hover target.
     public func endDragging() {
         draggingPieceId = nil
         dragHoverTargetId = nil
+    }
+
+    // MARK: - Custom Drag Helpers (manual drag mode)
+
+    /// Called by `ChipView` on every drag gesture change. Converts the provided
+    /// global location into board space and determines if the user is hovering
+    /// over a valid diagonal. If so the `dragHoverTargetId` is set to the
+    /// corresponding target id; otherwise it is cleared. The board frame must
+    /// be known (non‑zero) for this method to operate.
+    @MainActor
+    public func updateDrag(globalLocation: CGPoint) {
+        guard let pid = draggingPieceId, boardFrameGlobal != .zero else {
+            dragHoverTargetId = nil; return
+        }
+        // Convert to board-local coords
+        let p = CGPoint(x: globalLocation.x - boardFrameGlobal.minX,
+                        y: globalLocation.y - boardFrameGlobal.minY)
+
+        let cell = boardFrameGlobal.size.width / 6.0
+        let pad  = cell * 0.30 // fuzzy hover
+        let valid = Set(engine.validTargets(for: pid))
+
+        var hovered: String? = nil
+        for t in engine.state.targets where valid.contains(t.id) {
+            let rows = t.cells.map(\.row), cols = t.cells.map(\.col)
+            guard let minR = rows.min(), let maxR = rows.max(),
+                  let minC = cols.min(), let maxC = cols.max() else { continue }
+
+            let rect = CGRect(x: CGFloat(minC) * cell,
+                              y: CGFloat(minR) * cell,
+                              width:  CGFloat(maxC - minC + 1) * cell,
+                              height: CGFloat(maxR - minR + 1) * cell)
+                .insetBy(dx: -pad, dy: -pad)
+
+            if rect.contains(p) { hovered = t.id; break }
+        }
+        dragHoverTargetId = hovered
+    }
+
+    @MainActor
+    public func finishDrag() {
+        defer { draggingPieceId = nil; dragHoverTargetId = nil }
+        guard let pid = draggingPieceId, let tid = dragHoverTargetId else { return }
+        _ = engine.placePiece(pieceId: pid, on: tid)
     }
 }

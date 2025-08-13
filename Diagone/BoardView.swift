@@ -7,86 +7,81 @@ import UniformTypeIdentifiers
 /// emits callbacks through drop delegates when pieces are dropped.
 struct BoardView: View {
     @EnvironmentObject private var viewModel: GameViewModel
+    /// Optional row index to highlight during the win animation. When non‑nil
+    /// the specified row is tinted with the accent colour.
     var highlightRow: Int?
 
     var body: some View {
         GeometryReader { geo in
             let side: CGFloat = min(geo.size.width, geo.size.height)
-            let cell: CGFloat = side / 6.0
+            let cellSize: CGFloat = side / 6.0
 
-            // Pull state into locals (guides the type checker)
-            let engine = viewModel.engine
-            let board = engine.state.board
-            let mainCells = Set(engine.state.mainDiagonal.cells)
+            ZStack {
+                // --- your grid ---
+                let engine = viewModel.engine
+                let board  = engine.state.board
+                let mainCells = Set(engine.state.mainDiagonal.cells)
+                let hoverCells: Set<Cell> = {
+                    if let tid = viewModel.dragHoverTargetId,
+                       let t = engine.state.targets.first(where: { $0.id == tid }) {
+                        return Set(t.cells)
+                    }
+                    return []
+                }()
 
-            let hoverSet: Set<Cell> = {
-                guard let tid = viewModel.dragHoverTargetId,
-                      let t = engine.state.targets.first(where: { $0.id == tid }) else { return [] }
-                return Set(t.cells)
-            }()
-
-            VStack(spacing: 0) {
-                ForEach(0..<6, id: \.self) { r in
-                    HStack(spacing: 0) {
-                        ForEach(0..<6, id: \.self) { c in
-                            let cellId = Cell(row: r, col: c)
-                            cellView(
-                                size: cell,
-                                letter: board[r][c],
-                                isMain: mainCells.contains(cellId),
-                                isHover: hoverSet.contains(cellId),
-                                isRowHighlighted: highlightRow == r
-                            )
+                VStack(spacing: 0) {
+                    ForEach(0..<6, id: \.self) { r in
+                        HStack(spacing: 0) {
+                            ForEach(0..<6, id: \.self) { c in
+                                let id = Cell(row: r, col: c)
+                                Rectangle()
+                                    .fill(mainCells.contains(id) ? Color.mainDiagonal : Color.boardCell)
+                                    .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
+                                    .overlay {
+                                        if hoverCells.contains(id) {
+                                            Rectangle().fill(Color.hoverHighlight).allowsHitTesting(false)
+                                        }
+                                    }
+                                    .overlay {
+                                        if !board[r][c].isEmpty {
+                                            Text(board[r][c])
+                                                .font(.system(size: cellSize * 0.5, weight: .bold))
+                                                .foregroundStyle(Color.letter)
+                                        }
+                                    }
+                                    .frame(width: cellSize, height: cellSize)
+                            }
                         }
                     }
                 }
             }
             .frame(width: side, height: side)
-            // Drop target overlays drawn once, not per-cell
+            .background(boardFrameReporter) // << capture the frame of THIS board
             .overlay {
+                // show target hints but don't intercept drags while dragging
                 ZStack {
-                    ForEach(engine.state.targets, id: \.id) { t in
-                        DropTargetOverlay(target: t, cellSize: cell)
+                    ForEach(viewModel.engine.state.targets, id: \.id) { t in
+                        DropTargetOverlay(target: t, cellSize: cellSize)
                             .environmentObject(viewModel)
+                            .allowsHitTesting(false) // purely visual
                     }
                 }
+                .allowsHitTesting(viewModel.draggingPieceId == nil)
             }
         }
         .aspectRatio(1, contentMode: .fit)
-        .background(
-            GeometryReader { p in
-                Color.clear
-                    .onChange(of: p.size, initial: false) { _, _ in
-                        viewModel.boardFrameGlobal = p.frame(in: .global)
-                    }
-            }
-        )
     }
 
-    @ViewBuilder
-    private func cellView(size: CGFloat,
-                          letter: String,
-                          isMain: Bool,
-                          isHover: Bool,
-                          isRowHighlighted: Bool) -> some View {
-        Rectangle()
-            .fill(isRowHighlighted ? Color.accent
-                  : (isMain ? Color.mainDiagonal : Color.boardCell))
-            .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
-            .overlay {
-                if isHover { Rectangle().fill(Color.hoverHighlight) }
-            }
-            .overlay {
-                if !letter.isEmpty {
-                    Text(letter)
-                        .font(.system(size: size * 0.5, weight: .bold))
-                        .foregroundStyle(Color.letter)
+    private var boardFrameReporter: some View {
+        GeometryReader { p in
+            Color.clear
+                .onAppear { viewModel.boardFrameGlobal = p.frame(in: .global) }
+                .onChange(of: p.size, initial: true) { _, _ in
+                    viewModel.boardFrameGlobal = p.frame(in: .global)
                 }
-            }
-            .frame(width: size, height: size)
+        }
     }
 }
-
 
 /// A view representing an invisible drop area over a single diagonal. Handles
 /// taps to remove placed pieces and forwards drop events to the view model via
@@ -119,7 +114,7 @@ fileprivate struct DropTargetOverlay: View {
                     viewModel.removePiece(from: target.id)
                 }
             }
-            .onDrop(of: [UTType.text], delegate: DiagonalDropDelegate(target: target, viewModel: viewModel))
+            // Drag and drop is handled manually via DragGesture; remove the built‑in onDrop
     }
 }
 

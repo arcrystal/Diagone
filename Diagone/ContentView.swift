@@ -143,26 +143,29 @@ struct ContentView: View {
     private func chipPane(width: CGFloat) -> some View {
         let cellSize = computeChipCellSize(totalWidth: width * 0.9)
 
-        // group by length
+        // Prepare rows: for each length 1...5, take first chip and second chip
         let groups = Dictionary(grouping: viewModel.engine.state.pieces, by: \.length)
-
-        // pick first/second chip for lengths 1...5 (sorted for stability)
-        let row1: [GamePiece] = (1...5).compactMap {
-            groups[$0]?.sorted { $0.id < $1.id }.first
-        }
-        let row2: [GamePiece] = (1...5).compactMap {
-            groups[$0]?.sorted { $0.id < $1.id }.dropFirst().first
-        }
+        let sorted = { (xs: [GamePiece]) in xs.sorted { $0.id < $1.id } }
+        let row1Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.first }
+        let row2Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.dropFirst().first }
 
         VStack(spacing: cellSize * 0.6) {
             HStack(spacing: cellSize * 0.4) {
-                ForEach(row1, id: \.id) { piece in
-                    ChipView(piece: piece, cellSize: cellSize, hidden: !viewModel.started)
+                ForEach(0..<5, id: \.self) { i in
+                    if let p = row1Opt[i] {
+                        ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
+                    } else {
+                        Color.clear.frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                    }
                 }
             }
             HStack(spacing: cellSize * 0.4) {
-                ForEach(row2, id: \.id) { piece in
-                    ChipView(piece: piece, cellSize: cellSize, hidden: !viewModel.started)
+                ForEach(0..<5, id: \.self) { i in
+                    if let p = row2Opt[i] {
+                        ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
+                    } else {
+                        Color.clear.frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                    }
                 }
             }
         }
