@@ -60,13 +60,14 @@ struct BoardView: View {
             .overlay {
                 // show target hints but don't intercept drags while dragging
                 ZStack {
-                    ForEach(viewModel.engine.state.targets, id: \.id) { t in
+                    ForEach(viewModel.engine.state.targets.sorted(by: { $0.length > $1.length }), id: \.id) { t in
                         DropTargetOverlay(target: t, cellSize: cellSize)
                             .environmentObject(viewModel)
-                            .allowsHitTesting(false) // purely visual
+                            .allowsHitTesting(true)
                     }
                 }
-                .allowsHitTesting(viewModel.draggingPieceId == nil)
+                .allowsHitTesting(true)
+                
             }
         }
         .aspectRatio(1, contentMode: .fit)
@@ -107,13 +108,26 @@ fileprivate struct DropTargetOverlay: View {
             .fill(Color.clear)
             .frame(width: size, height: size)
             .position(x: centerX, y: centerY)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                // Return piece to panel if one is placed on this target
-                if (viewModel.engine.state.targets.first(where: { $0.id == target.id })?.pieceId) != nil {
-                    viewModel.removePiece(from: target.id)
+            .contentShape({ () -> Path in
+                let cellSize = self.cellSize
+                var path = Path()
+                for cell in target.cells {
+                    let rect = CGRect(
+                        x: CGFloat(cell.col) * cellSize,
+                        y: CGFloat(cell.row) * cellSize,
+                        width: cellSize,
+                        height: cellSize
+                    ).insetBy(dx: cellSize * 0.12, dy: cellSize * 0.12)
+                    path.addRect(rect)
                 }
-            }
+                return path
+            }())
+            .zIndex(10)
+            .highPriorityGesture(
+                TapGesture().onEnded {
+                    viewModel.handleTap(on: target.id)
+                }
+            )
     }
 }
 

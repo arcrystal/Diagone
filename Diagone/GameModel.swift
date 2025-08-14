@@ -318,6 +318,7 @@ public final class GameEngine: ObservableObject {
     /// after the removal to ensure overlapping diagonals remain intact.
     @discardableResult
     public func removePiece(from targetId: String) -> String? {
+        print("removePiece(from: \(targetId))")
         guard let targetIndex = state.targets.firstIndex(where: { $0.id == targetId }),
               let pieceId = state.targets[targetIndex].pieceId,
               let pieceIndex = state.pieces.firstIndex(where: { $0.id == pieceId }) else {
@@ -375,6 +376,18 @@ public final class GameEngine: ObservableObject {
         state.board = newBoard
         // Mark solved flag if all pieces placed and rows form valid words
         state.solved = isSolved()
+    }
+    
+    // MARK: - Tap Helpers
+    public func occupiedTargetId(containing cell: Cell) -> String? {
+        // We only look at non-main diagonals (targets). If a target is occupied and
+        // includes the tapped cell, return that target id; otherwise nil.
+        for target in state.targets where target.pieceId != nil {
+            if target.cells.contains(cell) {
+                return target.id
+            }
+        }
+        return nil
     }
 
     /// Determines if the puzzle is complete: all pieces placed, main diagonal filled

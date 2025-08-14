@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import UIKit
 
 /// View model bridging the game engine and the SwiftUI layer. Exposes high level
 /// operations that the UI can call in response to user gestures and binds engine
@@ -139,7 +140,7 @@ public final class GameViewModel: ObservableObject {
         guard let _ = engine.removePiece(from: targetId) else { return }
         // When a piece is removed the board is no longer complete so hide the main
         // diagonal input until placement resumes
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.1)) {
             showMainInput = false
         }
         // Persist progress
@@ -168,42 +169,42 @@ public final class GameViewModel: ObservableObject {
         }
     }
 
-    /// Undo the most recent board mutation. If successful the main input visibility
-    /// and stored letters are updated accordingly and persisted. Returns true on
-    /// success.
-    @discardableResult
-    public func undo() -> Bool {
-        let ok = engine.undo()
-        if ok {
-            // If any target becomes empty hide the main input
-            if !engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
-                showMainInput = false
-            }
-            // Update main input from engine
-            mainInput = engine.state.mainDiagonal.value
-            saveState()
-        }
-        return ok
-    }
-
-    /// Redo the most recently undone board mutation. Mirrors undo in terms of
-    /// updating UI state and persistence. Returns true on success.
-    @discardableResult
-    public func redo() -> Bool {
-        let ok = engine.redo()
-        if ok {
-            // If all pieces placed show main input
-            if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
-                showMainInput = true
-            }
-            mainInput = engine.state.mainDiagonal.value
-            saveState()
-            if engine.state.solved {
-                triggerWinEffects()
-            }
-        }
-        return ok
-    }
+//    /// Undo the most recent board mutation. If successful the main input visibility
+//    /// and stored letters are updated accordingly and persisted. Returns true on
+//    /// success.
+//    @discardableResult
+//    public func undo() -> Bool {
+//        let ok = engine.undo()
+//        if ok {
+//            // If any target becomes empty hide the main input
+//            if !engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
+//                showMainInput = false
+//            }
+//            // Update main input from engine
+//            mainInput = engine.state.mainDiagonal.value
+//            saveState()
+//        }
+//        return ok
+//    }
+//
+//    /// Redo the most recently undone board mutation. Mirrors undo in terms of
+//    /// updating UI state and persistence. Returns true on success.
+//    @discardableResult
+//    public func redo() -> Bool {
+//        let ok = engine.redo()
+//        if ok {
+//            // If all pieces placed show main input
+//            if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
+//                showMainInput = true
+//            }
+//            mainInput = engine.state.mainDiagonal.value
+//            saveState()
+//            if engine.state.solved {
+//                triggerWinEffects()
+//            }
+//        }
+//        return ok
+//    }
 
     /// Called by drop delegates when a drag enters a target’s drop area. Updates the
     /// highlighted target id so the UI can visually indicate the valid destination.
@@ -349,5 +350,11 @@ public final class GameViewModel: ObservableObject {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }
+    }
+    
+    // MARK: - Taps
+    public func handleTap(on targetId: String) {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        removePiece(from: targetId)
     }
 }

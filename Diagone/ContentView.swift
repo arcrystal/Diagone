@@ -70,20 +70,21 @@ struct ContentView: View {
                     .font(.system(.body, design: .monospaced))
                     .accessibilityLabel("Timer: \(viewModel.elapsedTimeString)")
                 Spacer(minLength: 10)
+                // TODO: ARE UNDO/ REDO WANTED?
                 // Undo button
-                Button(action: { _ = viewModel.undo() }) {
-                    Image(systemName: "arrow.uturn.backward")
-                }
-                .disabled(!canUndo)
-                .accessibilityLabel("Undo")
-                Spacer(minLength: 10)
-                // Redo button
-                Button(action: { _ = viewModel.redo() }) {
-                    Image(systemName: "arrow.uturn.forward")
-                }
-                .disabled(!canRedo)
-                .accessibilityLabel("Redo")
-                Spacer(minLength: 10)
+//                Button(action: { _ = viewModel.undo() }) {
+//                    Image(systemName: "arrow.uturn.backward")
+//                }
+//                .disabled(!canUndo)
+//                .accessibilityLabel("Undo")
+//                Spacer(minLength: 10)
+//                // Redo button
+//                Button(action: { _ = viewModel.redo() }) {
+//                    Image(systemName: "arrow.uturn.forward")
+//                }
+//                .disabled(!canRedo)
+//                .accessibilityLabel("Redo")
+//                Spacer(minLength: 10)
                 // Reset button
                 Button(action: viewModel.resetGame) {
                     Image(systemName: "arrow.clockwise")
