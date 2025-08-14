@@ -114,7 +114,6 @@ fileprivate struct DropTargetOverlay: View {
                     viewModel.removePiece(from: target.id)
                 }
             }
-            // Drag and drop is handled manually via DragGesture; remove the built‑in onDrop
     }
 }
 

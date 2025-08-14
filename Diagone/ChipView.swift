@@ -38,6 +38,7 @@ struct ChipView: View {
                                 .font(.system(size: cellSize * 0.6, weight: .bold))
                                 .foregroundColor(.primary)
                                 .frame(width: cellSize, height: cellSize)
+                                .rotationEffect(.degrees(-45)) // keep letters upright while chip is rotated
                                 .background(
                                     RoundedRectangle(cornerRadius: cellSize * 0.15, style: .continuous)
                                         .fill(Color(.systemBackground))
@@ -47,10 +48,10 @@ struct ChipView: View {
                     .rotationEffect(.degrees(45))
                 }
                 .frame(width: CGFloat(piece.length) * cellSize * sqrt(2), height: CGFloat(piece.length) * cellSize * sqrt(2))
-                .scaleEffect(isDragging ? 1.1 : 1.0)
+                .scaleEffect(isDragging ? 3.0 : 1.0)
                 .offset(dragOffset)
                 .shadow(color: Color.black.opacity(isDragging ? 0.3 : 0.15), radius: isDragging ? 6 : 4, x: 0, y: isDragging ? 4 : 2)
-                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isDragging)
+                .animation(nil, value: dragOffset)
                 // Custom drag gesture that begins immediately and updates the view model
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .global)
@@ -95,10 +96,7 @@ fileprivate struct ChipDragPreview: View {
                         .font(.system(size: cellSize * 0.6, weight: .bold))
                         .foregroundColor(.primary)
                         .frame(width: cellSize, height: cellSize)
-                        .background(
-                            RoundedRectangle(cornerRadius: cellSize * 0.15, style: .continuous)
-                                .fill(Color(.systemBackground))
-                        )
+                        .rotationEffect(.degrees(-45)) // upright letters in preview too
                 }
             }
             .rotationEffect(.degrees(45))

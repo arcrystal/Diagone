@@ -33,6 +33,8 @@ struct MainDiagonalInputView: View {
                             if !filtered.isEmpty && index < 5 {
                                 focusedIndex = index + 1
                             }
+                            // Write current six letters into the engine so the board updates live
+                            viewModel.commitMainInput()
                         }
                     ))
                     .font(.system(size: cellSize * 0.5, weight: .bold))
@@ -44,6 +46,21 @@ struct MainDiagonalInputView: View {
                     .disableAutocorrection(true)
                     .accessibilityLabel("Main diagonal letter \(index + 1)")
                 }
+            }
+        }
+        // Focus the next empty field when showMainInput becomes true
+        .onChange(of: viewModel.showMainInput, initial: false) { _, newValue in
+            guard newValue else { return }
+            let next = input.firstIndex(where: { $0.isEmpty }) ?? 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                focusedIndex = next
+            }
+        }
+        .onAppear {
+            guard viewModel.showMainInput else { return }
+            let next = input.firstIndex(where: { $0.isEmpty }) ?? 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                focusedIndex = next
             }
         }
         .padding(.vertical, 8)

@@ -24,7 +24,7 @@ extension Color {
     /// mode to aid contrast.
     static var mainDiagonal: Color {
         Color(UIColor { trait in
-            return trait.userInterfaceStyle == .dark ? UIColor(red: 0.23, green: 0.45, blue: 0.73, alpha: 1.0) : UIColor(red: 0.12, green: 0.35, blue: 0.65, alpha: 1.0)
+            return trait.userInterfaceStyle == .dark ? UIColor(red: 0.28, green: 0.6, blue: 0.8, alpha: 0.7) : UIColor(red: 0.12, green: 0.35, blue: 0.65, alpha: 0.7)
         })
     }
     /// Colour used to tint rows during the win animation. A warm yellow

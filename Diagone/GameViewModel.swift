@@ -8,14 +8,15 @@ import Combine
 /// UI concerns such as the timer, drag hover feedback and confetti triggers.
 @MainActor
 public final class GameViewModel: ObservableObject {
-    /// The underlying engine that implements the game rules. All mutations of
-    /// the board go through this engine.
+    /// The underlying engine that implements the game rules.
+    /// All mutations of the board go through this engine.
     @Published private(set) var engine: GameEngine
-    /// Whether the user has pressed the start button. Chips remain hidden until
-    /// this flag becomes true.
+    /// Whether the user has pressed the start button.
+    /// Chips remain hidden until this flag becomes true.
     @Published public var started: Bool = false
-    /// The currently highlighted drop target id while dragging. The board view
-    /// observes this to highlight matching diagonals during drag and drop.
+    @Published public var finished: Bool = false
+    /// The currently highlighted drop target id while dragging.
+    /// The board view observes this to highlight matching diagonals during drag and drop.
     @Published public var dragHoverTargetId: String? = nil
     /// Whether to present the six cell input field for entering the main diagonal.
     /// This becomes true after all pieces are placed.
@@ -25,6 +26,7 @@ public final class GameViewModel: ObservableObject {
     /// Elapsed time in seconds since the player pressed start. Updates every
     /// second while playing.
     @Published public var elapsedTime: TimeInterval = 0
+    @Published public var finishTime: TimeInterval = 0
     /// The letters entered into the six cells of the main diagonal input. When
     /// changed the view model writes these letters into the engine’s state.
     @Published public var mainInput: [String] = Array(repeating: "", count: 6)
@@ -223,6 +225,11 @@ public final class GameViewModel: ObservableObject {
 
     /// Returns the elapsed time as a formatted string mm:ss for display in the UI.
     public var elapsedTimeString: String {
+        if finished {
+            let minutes = Int(finishTime) / 60
+            let seconds = Int(finishTime) % 60
+            return String(format: "%02d:%02d", minutes, seconds)
+        }
         let minutes = Int(elapsedTime) / 60
         let seconds = Int(elapsedTime) % 60
         return String(format: "%02d:%02d", minutes, seconds)
@@ -260,6 +267,9 @@ public final class GameViewModel: ObservableObject {
     /// Triggers the win effects: confetti burst, success haptic and optionally a
     /// sound. Confetti will automatically hide after a short delay.
     private func triggerWinEffects() {
+        finished = true
+        finishTime = elapsedTime
+        showMainInput = false
         withAnimation {
             showConfetti = true
         }
@@ -273,7 +283,6 @@ public final class GameViewModel: ObservableObject {
     }
 
     // MARK: - Dragging Hooks
-
     @MainActor
     public func beginDragging(pieceId: String) {
         draggingPieceId = pieceId
@@ -328,6 +337,16 @@ public final class GameViewModel: ObservableObject {
     public func finishDrag() {
         defer { draggingPieceId = nil; dragHoverTargetId = nil }
         guard let pid = draggingPieceId, let tid = dragHoverTargetId else { return }
-        _ = engine.placePiece(pieceId: pid, on: tid)
+
+        let success = engine.placePiece(pieceId: pid, on: tid)
+        if success {
+            if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
+                withAnimation { showMainInput = true }
+            }
+            saveState()
+        } else {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+        }
     }
 }
