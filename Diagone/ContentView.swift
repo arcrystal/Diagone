@@ -17,28 +17,26 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header: title, timer and control buttons
-                    header
-                        .padding(.horizontal)
-                    // Board
-                    BoardView(highlightRow: highlightedRow)
+            VStack(spacing: 20) {
+                // Header: title, timer and control buttons
+                header
+                    .padding(.horizontal)
+                // Board
+                BoardView(highlightRow: highlightedRow)
+                    .environmentObject(viewModel)
+                    .padding(.horizontal)
+                    .frame(maxWidth: .infinity)
+                // Chip selection pane
+                chipPane(width: width)
+                    .padding(.horizontal)
+                // Main diagonal input (shown only when all pieces placed)
+                if viewModel.showMainInput {
+                    MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
                         .environmentObject(viewModel)
                         .padding(.horizontal)
-                        .frame(maxWidth: .infinity)
-                    // Chip selection pane
-                    chipPane(width: width)
-                        .padding(.horizontal)
-                    // Main diagonal input (shown only when all pieces placed)
-                    if viewModel.showMainInput {
-                        MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
-                            .environmentObject(viewModel)
-                            .padding(.horizontal)
-                    }
                 }
-                .padding(.vertical)
             }
+            .padding(.vertical)
             .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
             // Trigger row highlight animation whenever the solved flag becomes true
             .onChange(of: viewModel.isSolved, initial: false) { oldValue, newValue in
@@ -130,18 +128,21 @@ struct ContentView: View {
     /// small spacing between chips. This yields a cell size that fits all chips
     /// neatly on one row. Both rows share the same cell size.
     private func computeChipCellSize(totalWidth: CGFloat) -> CGFloat {
-        let lengths = [1, 2, 3, 4, 5]
-        let sumDiag = lengths.reduce(0.0) { $0 + sqrt(2.0) * Double($1) }
-        // Factor controlling spacing relative to cell size. Adjust for desired
-        // padding between chips. 0.3 yields 30% of cell size as spacing.
-        let spacingFactor: Double = 0.3
-        let denom = sumDiag + spacingFactor * Double(lengths.count - 1)
-        return totalWidth / CGFloat(denom)
+        // We lay chips in 5 uniform slots (equal left-edge pitch). Fit the longest chip (len=5)
+        // into a single slot so nothing overlaps, leaving a small visual margin.
+        let slots = 5.0
+        let pitch = Double(totalWidth) / slots
+        let longest = sqrt(2.0) * 5.0 // width factor for length-5 chip
+        let margin = 1.1
+        let cell = pitch * margin / longest
+        return CGFloat(cell)
     }
 
     @ViewBuilder
     private func chipPane(width: CGFloat) -> some View {
-        let cellSize = computeChipCellSize(totalWidth: width * 0.9)
+        let cellSize = computeChipCellSize(totalWidth: width)
+        let usable = width * 0.75
+        let slotWidth = usable / 5.0 // uniform left-edge pitch
 
         // Prepare rows: for each length 1...5, take first chip and second chip
         let groups = Dictionary(grouping: viewModel.engine.state.pieces, by: \.length)
@@ -149,22 +150,28 @@ struct ContentView: View {
         let row1Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.first }
         let row2Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.dropFirst().first }
 
-        VStack(spacing: cellSize * 0.6) {
-            HStack(spacing: cellSize * 0.4) {
+        VStack(spacing: cellSize * 0.2) {
+            // Each chip sits in a fixed-width slot (`slotWidth`) so the left edges are uniformly spaced.
+            // Chips are leading-aligned inside their slots; sizes vary but no overlap occurs.
+            HStack(spacing: 0) {
                 ForEach(0..<5, id: \.self) { i in
                     if let p = row1Opt[i] {
                         ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
+                            .frame(width: slotWidth, alignment: .leading)
                     } else {
-                        Color.clear.frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                        Color.clear
+                            .frame(width: slotWidth, height: cellSize * 1.6, alignment: .leading)
                     }
                 }
             }
-            HStack(spacing: cellSize * 0.4) {
+            HStack(spacing: 0) {
                 ForEach(0..<5, id: \.self) { i in
                     if let p = row2Opt[i] {
                         ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
+                            .frame(width: slotWidth, alignment: .leading)
                     } else {
-                        Color.clear.frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                        Color.clear
+                            .frame(width: slotWidth, height: cellSize * 1.6, alignment: .leading)
                     }
                 }
             }

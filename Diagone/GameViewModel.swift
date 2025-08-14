@@ -71,6 +71,7 @@ public final class GameViewModel: ObservableObject {
     /// restart from zero.
     public func startGame() {
         guard !started else { return }
+        showMainInput = false
         started = true
         startDate = Date()
         elapsedTime = 0

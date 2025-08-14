@@ -166,9 +166,9 @@ public struct PuzzleConfiguration: Codable {
         let pieceStrings = [
             "M", "E",
             "RA", "SE",
-            "ALD", "WEN",
+            "WEN", "ALD",
             "FAGI", "RBEY",
-            "RAYAA", "HBLAN"
+            "HBLAN", "RAYAA"
         ]
         return PuzzleConfiguration(diagonals: diagonals, pieceLetters: pieceStrings)
     }

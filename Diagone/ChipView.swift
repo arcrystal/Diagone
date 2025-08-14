@@ -31,24 +31,26 @@ struct ChipView: View {
                     // Render letters in an HStack; we rotate the entire stack to
                     // achieve the diagonal orientation. We apply no spacing
                     // between letters so they sit flush along the diagonal.
-                    HStack(spacing: 0) {
+                    HStack(spacing: isDragging ? 0.4 * cellSize : 0) {
                         ForEach(Array(piece.letters.enumerated()), id: \.offset) { index, element in
                             let ch = String(element)
                             Text(ch)
-                                .font(.system(size: cellSize * 0.6, weight: .bold))
+                                .font(.system(size: cellSize * 0.9, weight: .bold))
                                 .foregroundColor(.primary)
                                 .frame(width: cellSize, height: cellSize)
-                                .rotationEffect(.degrees(-45)) // keep letters upright while chip is rotated
+                                .rotationEffect(.degrees(-45)) // undo rotation for text
                                 .background(
+                                    isDragging ? nil :
                                     RoundedRectangle(cornerRadius: cellSize * 0.15, style: .continuous)
                                         .fill(Color(.systemBackground))
                                 )
+                                
                         }
                     }
                     .rotationEffect(.degrees(45))
                 }
                 .frame(width: CGFloat(piece.length) * cellSize * sqrt(2), height: CGFloat(piece.length) * cellSize * sqrt(2))
-                .scaleEffect(isDragging ? 3.0 : 1.0)
+                .scaleEffect(isDragging ? 4.0 : 1.8) // resize chips
                 .offset(dragOffset)
                 .shadow(color: Color.black.opacity(isDragging ? 0.3 : 0.15), radius: isDragging ? 6 : 4, x: 0, y: isDragging ? 4 : 2)
                 .animation(nil, value: dragOffset)
@@ -96,7 +98,7 @@ fileprivate struct ChipDragPreview: View {
                         .font(.system(size: cellSize * 0.6, weight: .bold))
                         .foregroundColor(.primary)
                         .frame(width: cellSize, height: cellSize)
-                        .rotationEffect(.degrees(-45)) // upright letters in preview too
+                        .rotationEffect(.degrees(-45))
                 }
             }
             .rotationEffect(.degrees(45))
