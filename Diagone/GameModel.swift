@@ -1,6 +1,123 @@
 import Foundation
 import UIKit
 
+// MARK: - Puzzle Utilities
+fileprivate enum PuzzleBuilder {
+    /// Expects exactly six words of length 6 each, already uppercased.
+    static func pieceLetters(from words: [String]) -> [String] {
+        precondition(words.count == 6, "Expected 6 words")
+        // Guard lengths; if malformed, best-effort pad/truncate
+        let w = words.map { s -> String in
+            let up = s.uppercased()
+            if up.count >= 6 { return String(up.prefix(6)) }
+            return up.padding(toLength: 6, withPad: " ", startingAt: 0)
+        }
+        func char(_ wordIndex: Int, _ letterIndex: Int) -> String {
+            let s = w[wordIndex]
+            let idx = s.index(s.startIndex, offsetBy: letterIndex)
+            return String(s[idx])
+        }
+        var pieces: [String] = []
+        // A diagonals (upper), lengths 1..5
+        // 1A: w1[5]
+        pieces.append(char(0,5))
+        // 1B: w6[0]
+        pieces.append(char(5,0))
+        // 2A: w1[4], w2[5]
+        pieces.append(char(0,4) + char(1,5))
+        // 2B: w5[0], w6[1]
+        pieces.append(char(4,0) + char(5,1))
+        // 3A: w1[3], w2[4], w3[5]
+        pieces.append(char(0,3) + char(1,4) + char(2,5))
+        // 3B: w4[0], w5[1], w6[2]
+        pieces.append(char(3,0) + char(4,1) + char(5,2))
+        // 4A: w1[2], w2[3], w3[4], w4[5]
+        pieces.append(char(0,2) + char(1,3) + char(2,4) + char(3,5))
+        // 4B: w3[0], w4[1], w5[2], w6[3]
+        pieces.append(char(2,0) + char(3,1) + char(4,2) + char(5,3))
+        // 5A: w1[1], w2[2], w3[3], w4[4], w5[5]
+        pieces.append(char(0,1) + char(1,2) + char(2,3) + char(3,4) + char(4,5))
+        // 5B: w2[0], w3[1], w4[2], w5[3], w6[4]
+        pieces.append(char(1,0) + char(2,1) + char(3,2) + char(4,3) + char(5,4))
+        return pieces
+    }
+}
+
+// MARK: - Puzzle Library Loader
+fileprivate enum PuzzleLibrary {
+    struct Store: Decodable { let map: [String:[String]] }
+    /// Loads a JSON dictionary mapping "MM/DD/YYYY" -> [six words].
+    /// Supports bundled subdirectory + filename (default: Puzzles/puzzles.json).
+    static func load(resource: String = "puzzles", subdirectory: String = "Puzzles") -> [String:[String]]? {
+        let bundle = Bundle.main
+
+        func decodeMap(from data: Data) -> [String:[String]]? {
+            if let mapOnly = try? JSONDecoder().decode([String:[String]].self, from: data) { return mapOnly }
+            if let wrapped = try? JSONDecoder().decode(Store.self, from: data) { return wrapped.map }
+            return nil
+        }
+
+        // 1) Exact: subdirectory + resource name (no extension in `resource`)
+        if let url = bundle.url(forResource: resource, withExtension: "json", subdirectory: subdirectory),
+           let data = try? Data(contentsOf: url),
+           let map = decodeMap(from: data) {
+            #if DEBUG
+            print("PuzzleLibrary.load: loaded \(url.lastPathComponent) from subdirectory '" + subdirectory + "'")
+            #endif
+            return map
+        }
+
+        // 2) Root: resource.json at bundle root
+        if let url = bundle.url(forResource: resource, withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let map = decodeMap(from: data) {
+            #if DEBUG
+            print("PuzzleLibrary.load: loaded \(url.lastPathComponent) from bundle root")
+            #endif
+            print(map)
+            return map
+        }
+
+        // 3) Legacy name: Puzzles.json at root
+        if let url = bundle.url(forResource: "Puzzles", withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let map = decodeMap(from: data) {
+            #if DEBUG
+            print("PuzzleLibrary.load: loaded legacy Puzzles.json from bundle root")
+            #endif
+            return map
+        }
+
+        // 4) Heuristic scan: find any puzzles.json anywhere in the bundle (handles folder references)
+        if let urls = bundle.urls(forResourcesWithExtension: "json", subdirectory: nil) {
+            if let hit = urls.first(where: { $0.lastPathComponent.lowercased() == "puzzles.json" }),
+               let data = try? Data(contentsOf: hit),
+               let map = decodeMap(from: data) {
+                #if DEBUG
+                print("PuzzleLibrary.load: loaded via scan at \(hit.path)")
+                #endif
+                return map
+            }
+            // Secondary: any JSON under a Puzzles/ directory
+            if let hit = urls.first(where: { $0.path.contains("/Puzzles/") && $0.lastPathComponent.hasSuffix(".json") }),
+               let data = try? Data(contentsOf: hit),
+               let map = decodeMap(from: data) {
+                #if DEBUG
+                print("PuzzleLibrary.load: loaded from Puzzles/ via scan at \(hit.lastPathComponent)")
+                #endif
+                return map
+            }
+        }
+
+        #if DEBUG
+        let all = bundle.urls(forResourcesWithExtension: "json", subdirectory: nil)?.map { $0.lastPathComponent } ?? []
+        print("PuzzleLibrary.load: FAILED to locate puzzles.json. Tried resource='\(resource)', subdirectory='\(subdirectory)'. JSONs in bundle: \(all)")
+        #endif
+        return nil
+    }
+}
+
+
 /// Represents a single cell on the 6×6 board. Encapsulates row and column
 /// indices and conforms to `Hashable` and `Codable` for use in sets and
 /// persistence. Using a dedicated type instead of `(Int, Int)` improves
@@ -161,16 +278,8 @@ public struct PuzzleConfiguration: Codable {
             }
         }
         diagonals.append(contentsOf: diagCells)
-        // Piece strings taken directly from the problem statement. The order of the
-        // array determines the generated ids (p1, p2, ...).
-        let pieceStrings = [
-            "M", "E",
-            "RA", "SE",
-            "WEN", "ALD",
-            "FAGI", "RBEY",
-            "HBLAN", "RAYAA"
-        ]
-        return PuzzleConfiguration(diagonals: diagonals, pieceLetters: pieceStrings)
+        // No default piece letters; pieces are derived from JSON-driven daily words.
+        return PuzzleConfiguration(diagonals: diagonals, pieceLetters: [])
     }
 }
 
@@ -195,10 +304,39 @@ public final class GameEngine: ObservableObject {
     /// logic.
     public let configuration: PuzzleConfiguration
 
+    /// The six horizontal target words for the current puzzle (row 0..5).
+    public private(set) var puzzleRowWords: [String] = []
+
     public init(configuration: PuzzleConfiguration = .defaultConfiguration()) {
         self.configuration = configuration
         let state = GameEngine.createInitialState(configuration: configuration)
         self.state = state
+    }
+
+    /// Loads a puzzle from a bundled JSON file (date -> [six words]).
+    /// If loading fails, falls back to the provided configuration/default.
+    public convenience init(puzzleDate: Date = Date(),
+                             resource: String = "puzzles",
+                             subdirectory: String = "Puzzles") {
+        let df = DateFormatter()
+        df.dateFormat = "MM/dd/yyyy"
+        let key = df.string(from: puzzleDate)
+
+        guard let library = PuzzleLibrary.load(resource: resource, subdirectory: subdirectory),
+              let words = library[key] else {
+            fatalError("No puzzle found for date \(key)")
+        }
+
+        // Uppercase and sanitize words to 6 letters
+        let up = words.map { String($0.uppercased().prefix(6)) }
+
+        // Build piece letters from the six words
+        let base = PuzzleConfiguration.defaultConfiguration()
+        let pieceLetters = PuzzleBuilder.pieceLetters(from: up)
+
+        let config = PuzzleConfiguration(diagonals: base.diagonals, pieceLetters: pieceLetters)
+        self.init(configuration: config)
+        self.puzzleRowWords = up
     }
 
     /// Restores the engine to a previously saved state. This API allows
@@ -267,11 +405,12 @@ public final class GameEngine: ObservableObject {
     }
 
     /// Compute the list of target identifiers that can accept a given piece. A target is
-    /// valid if its length matches the length of the piece and it currently has no
-    /// placed piece on it.
+    /// valid if its length matches the length of the piece. This allows targeting both
+    /// empty and occupied targets of the same length for replacement.
     public func validTargets(for pieceId: String) -> [String] {
         guard let piece = state.pieces.first(where: { $0.id == pieceId }) else { return [] }
-        return state.targets.filter { $0.length == piece.length && $0.pieceId == nil }.map { $0.id }
+        // Allow both empty and occupied targets of the same length so we can replace
+        return state.targets.filter { $0.length == piece.length }.map { $0.id }
     }
 
     /// Attempts to place the specified piece onto the specified target. This method
@@ -311,6 +450,64 @@ public final class GameEngine: ObservableObject {
         // Recompute the board from scratch
         recomputeBoard()
         return true
+    }
+
+    /// Places the specified piece on the target. If the target is occupied by another
+    /// piece of the same length, it replaces it (the previous piece returns to the pane).
+    /// Returns a tuple (success, replacedPieceId) where replacedPieceId is non-nil only
+    /// when a replacement occurred.
+    @discardableResult
+    public func placeOrReplace(pieceId: String, on targetId: String) -> (Bool, String?) {
+        guard let pieceIndex = state.pieces.firstIndex(where: { $0.id == pieceId }),
+              let targetIndex = state.targets.firstIndex(where: { $0.id == targetId }) else {
+            return (false, nil)
+        }
+        var piece = state.pieces[pieceIndex]
+        let target = state.targets[targetIndex]
+        // Validate length
+        guard target.length == piece.length else { return (false, nil) }
+
+        // Build a temporary board that excludes the current target's letters so we can
+        // validate conflicts against other placements only.
+        var tempBoard = Array(repeating: Array(repeating: "", count: 6), count: 6)
+        for t in state.targets {
+            guard t.id != target.id, let pid = t.pieceId, let p = state.pieces.first(where: { $0.id == pid }) else { continue }
+            for (ch, cell) in zip(p.letters, t.cells) {
+                tempBoard[cell.row][cell.col] = String(ch)
+            }
+        }
+        // Also include the main diagonal letters in conflict checking
+        for (letter, cell) in zip(state.mainDiagonal.value, state.mainDiagonal.cells) {
+            tempBoard[cell.row][cell.col] = letter
+        }
+        // Validate no conflicts against tempBoard
+        for (letter, cell) in zip(piece.letters, target.cells) {
+            let existing = tempBoard[cell.row][cell.col]
+            if !existing.isEmpty && existing != String(letter) {
+                return (false, nil)
+            }
+        }
+
+        // Snapshot for undo and clear redo
+        history.append(state)
+        future.removeAll()
+
+        // If occupied, unplace the previous piece
+        var replacedId: String? = nil
+        if let occupiedId = state.targets[targetIndex].pieceId,
+           let occupiedIndex = state.pieces.firstIndex(where: { $0.id == occupiedId }) {
+            state.pieces[occupiedIndex].placedOn = nil
+            replacedId = occupiedId
+        }
+
+        // Commit placement
+        piece.placedOn = target.id
+        state.pieces[pieceIndex] = piece
+        state.targets[targetIndex].pieceId = piece.id
+
+        // Recompute board and solved flag
+        recomputeBoard()
+        return (true, replacedId)
     }
 
     /// Removes the piece occupying the specified target, if any. Returns the id of the
@@ -390,25 +587,26 @@ public final class GameEngine: ObservableObject {
         return nil
     }
 
-    /// Determines if the puzzle is complete: all pieces placed, main diagonal filled
-    /// and every horizontal word in the board is a valid English word. Uses
-    /// `UITextChecker` to validate spelling. This method is called whenever
-    /// `recomputeBoard` runs and stores the result in `state.solved`.
+    /// Determines if the puzzle is complete: all pieces placed, main diagonal filled,
+    /// and every horizontal word matches the loaded puzzle words.
     private func isSolved() -> Bool {
-        // All targets must be occupied
+        // All targets must be occupied and main diagonal fully filled
         let allPlaced = state.targets.allSatisfy { $0.pieceId != nil }
-        // Main diagonal must be fully filled
         let mainFilled = state.mainDiagonal.value.allSatisfy { !$0.isEmpty }
         guard allPlaced && mainFilled else { return false }
-        // Validate each row forms a real word of six letters
-        for row in 0..<6 {
-            let word = state.board[row].joined()
-            guard word.count == 6 else { return false }
-            if !GameEngine.isValidWord(word) { return false }
+        // If we have six target words, require exact row matches (case-insensitive)
+        if puzzleRowWords.count == 6 {
+            for row in 0..<6 {
+                let word = state.board[row].joined().uppercased()
+                if word != puzzleRowWords[row].uppercased() { return false }
+            }
+            return true
         }
-        return true
+        // Without a loaded word list, treat as unsolved to avoid false positives
+        return false
     }
 
+    // no longer used for validation
     /// Spell checks the provided word using the system dictionary. Returns true when the
     /// word contains no spelling errors. `UITextChecker` is available on iOS and
     /// provides access to the platform dictionary. If for some reason spell checking

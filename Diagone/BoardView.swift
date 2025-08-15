@@ -17,57 +17,21 @@ struct BoardView: View {
             let cellSize: CGFloat = side / 6.0
 
             ZStack {
-                // --- your grid ---
-                let engine = viewModel.engine
-                let board  = engine.state.board
-                let mainCells = Set(engine.state.mainDiagonal.cells)
-                let hoverCells: Set<Cell> = {
-                    if let tid = viewModel.dragHoverTargetId,
-                       let t = engine.state.targets.first(where: { $0.id == tid }) {
-                        return Set(t.cells)
-                    }
-                    return []
-                }()
+                // Grid + letters layer
+                GridLayer(cellSize: cellSize)
+                    .frame(width: side, height: side)
+                    .background(boardFrameReporter)
+                    .modifier(Shake(animatableData: CGFloat(viewModel.shakeTrigger)))
 
-                VStack(spacing: 0) {
-                    ForEach(0..<6, id: \.self) { r in
-                        HStack(spacing: 0) {
-                            ForEach(0..<6, id: \.self) { c in
-                                let id = Cell(row: r, col: c)
-                                Rectangle()
-                                    .fill(mainCells.contains(id) ? Color.mainDiagonal : Color.boardCell)
-                                    .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
-                                    .overlay {
-                                        if hoverCells.contains(id) {
-                                            Rectangle().fill(Color.hoverHighlight).allowsHitTesting(false)
-                                        }
-                                    }
-                                    .overlay {
-                                        if !board[r][c].isEmpty {
-                                            Text(board[r][c])
-                                                .font(.system(size: cellSize * 0.5, weight: .bold))
-                                                .foregroundStyle(Color.letter)
-                                        }
-                                    }
-                                    .frame(width: cellSize, height: cellSize)
-                            }
-                        }
-                    }
-                }
+                // Targets overlay layer (tap + drop hit areas)
+                TargetsOverlayLayer(cellSize: cellSize)
             }
-            .frame(width: side, height: side)
-            .background(boardFrameReporter) // << capture the frame of THIS board
-            .overlay {
-                // show target hints but don't intercept drags while dragging
-                ZStack {
-                    ForEach(viewModel.engine.state.targets.sorted(by: { $0.length > $1.length }), id: \.id) { t in
-                        DropTargetOverlay(target: t, cellSize: cellSize)
-                            .environmentObject(viewModel)
-                            .allowsHitTesting(true)
-                    }
+            .overlay(alignment: .bottom) {
+                if viewModel.showIncorrectFeedback {
+                    IncorrectToastView()
+                        .padding(.bottom, 12)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .allowsHitTesting(true)
-                
             }
         }
         .aspectRatio(1, contentMode: .fit)
@@ -81,6 +45,65 @@ struct BoardView: View {
                     viewModel.boardFrameGlobal = p.frame(in: .global)
                 }
         }
+    }
+}
+
+fileprivate struct GridLayer: View {
+    @EnvironmentObject private var viewModel: GameViewModel
+    let cellSize: CGFloat
+
+    var body: some View {
+        let engine = viewModel.engine
+        let board  = engine.state.board
+        let mainCells = Set(engine.state.mainDiagonal.cells)
+        let hoverCells: Set<Cell> = {
+            if let tid = viewModel.dragHoverTargetId,
+               let t = engine.state.targets.first(where: { $0.id == tid }) {
+                return Set(t.cells)
+            }
+            return []
+        }()
+
+        return VStack(spacing: 0) {
+            ForEach(0..<6, id: \.self) { r in
+                HStack(spacing: 0) {
+                    ForEach(0..<6, id: \.self) { c in
+                        let id = Cell(row: r, col: c)
+                        Rectangle()
+                            .fill(mainCells.contains(id) ? Color.mainDiagonal : Color.boardCell)
+                            .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
+                            .overlay {
+                                if hoverCells.contains(id) {
+                                    Rectangle().fill(Color.hoverHighlight).allowsHitTesting(false)
+                                }
+                            }
+                            .overlay {
+                                if !board[r][c].isEmpty {
+                                    Text(board[r][c])
+                                        .font(.system(size: cellSize * 0.5, weight: .bold))
+                                        .foregroundStyle(Color.letter)
+                                }
+                            }
+                            .frame(width: cellSize, height: cellSize)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fileprivate struct TargetsOverlayLayer: View {
+    @EnvironmentObject private var viewModel: GameViewModel
+    let cellSize: CGFloat
+    var body: some View {
+        ZStack {
+            ForEach(viewModel.engine.state.targets.sorted(by: { $0.length > $1.length }), id: \.id) { t in
+                DropTargetOverlay(target: t, cellSize: cellSize)
+                    .environmentObject(viewModel)
+                    .allowsHitTesting(true)
+            }
+        }
+        .allowsHitTesting(true)
     }
 }
 
@@ -161,5 +184,32 @@ fileprivate struct DiagonalDropDelegate: DropDelegate {
         // End dragging regardless of outcome
         viewModel.endDragging()
         return result
+    }
+}
+
+/// A gentle shake effect used for incorrect feedback (NYT-style)
+fileprivate struct Shake: GeometryEffect {
+    var amount: CGFloat = 8
+    var shakesPerUnit: CGFloat = 3
+    var animatableData: CGFloat
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let translation = amount * sin(animatableData * .pi * shakesPerUnit)
+        return ProjectionTransform(CGAffineTransform(translationX: translation, y: 0))
+    }
+}
+
+/// A subtle, production-grade toast for incorrect puzzles.
+fileprivate struct IncorrectToastView: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .imageScale(.small)
+            Text("Not quite—keep going")
+                .font(.subheadline.weight(.semibold))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(radius: 2, y: 1)
     }
 }

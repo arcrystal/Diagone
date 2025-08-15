@@ -24,6 +24,10 @@ public final class GameViewModel: ObservableObject {
     @Published public var showMainInput: Bool = false
     /// Whether to present confetti animation overlay after winning the puzzle.
     @Published public var showConfetti: Bool = false
+    /// Incorrect-state feedback flags (NYT-style, subtle)
+    @Published public var showIncorrectFeedback: Bool = false
+    /// Triggers a gentle board shake when incremented
+    @Published public var shakeTrigger: Int = 0
     /// Elapsed time in seconds since the player pressed start. Updates every
     /// second while playing.
     @Published public var elapsedTime: TimeInterval = 0
@@ -55,7 +59,7 @@ public final class GameViewModel: ObservableObject {
     private var startDate: Date?
     private let storageKey = "diagone_state"
 
-    public init(engine: GameEngine = GameEngine()) {
+    public init(engine: GameEngine = GameEngine(puzzleDate: Date())) {
         self.engine = engine
         // Try to restore from saved progress
         if let restored = Self.loadSavedState(for: engine.configuration) {
@@ -76,6 +80,9 @@ public final class GameViewModel: ObservableObject {
     public func startGame() {
         guard !started else { return }
         showMainInput = false
+        engine.reset()
+        print(engine.puzzleRowWords)
+        mainInput = Array(repeating: "", count: 6)
         started = true
         startDate = Date()
         elapsedTime = 0
@@ -90,22 +97,6 @@ public final class GameViewModel: ObservableObject {
             }
     }
 
-    /// Resets the game back to its initial state. Stops the timer and clears all UI
-    /// state such as highlighted targets and confetti. Also removes any saved
-    /// progress from persistent storage.
-    public func resetGame() {
-        started = false
-        showMainInput = false
-        showConfetti = false
-        dragHoverTargetId = nil
-        timerCancellable?.cancel()
-        elapsedTime = 0
-        startDate = nil
-        engine.reset()
-        mainInput = Array(repeating: "", count: 6)
-        // Remove saved state
-        UserDefaults.standard.removeObject(forKey: storageKey)
-    }
 
     /// Returns the list of target ids that can accept the given piece. This is
     /// calculated by deferring to the engine. The UI uses this to restrict drop
@@ -119,18 +110,19 @@ public final class GameViewModel: ObservableObject {
     /// conflicts) this method triggers haptic feedback and returns false.
     @discardableResult
     public func handleDrop(pieceId: String, onto targetId: String) -> Bool {
-        let success = engine.placePiece(pieceId: pieceId, on: targetId)
+        let (success, replacedId) = engine.placeOrReplace(pieceId: pieceId, on: targetId)
         if success {
-            // Check if all pieces have been placed to reveal main input
+            // Newly placed chip should appear inactive in the pane
+            fadingPanePieceIds.insert(pieceId)
+            // If a chip was replaced, re‑enable it in the pane
+            if let rid = replacedId { fadingPanePieceIds.remove(rid) }
+
             if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
-                withAnimation {
-                    showMainInput = true
-                }
+                withAnimation { showMainInput = true }
             }
-            // Persist progress after successful placement
             saveState()
+            maybeHandleCompletionState()
         } else {
-            // Provide brief haptic and audio feedback on invalid drop
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }
@@ -140,9 +132,10 @@ public final class GameViewModel: ObservableObject {
     /// Removes the piece occupying the given target and returns it to the panel. Also
     /// hides the main input if any piece is removed. Persisted state is updated.
     public func removePiece(from targetId: String) {
-        guard let _ = engine.removePiece(from: targetId) else { return }
-        // When a piece is removed the board is no longer complete so hide the main
-        // diagonal input until placement resumes
+        guard let removedId = engine.removePiece(from: targetId) else { return }
+        // Piece is coming back to the pane; restore interactivity/opacity there.
+        fadingPanePieceIds.remove(removedId)
+        // When a piece is removed the board is no longer complete so hide the main diagonal input until placement resumes
         withAnimation(.easeInOut(duration: 0.1)) {
             showMainInput = false
         }
@@ -166,10 +159,7 @@ public final class GameViewModel: ObservableObject {
         }
         engine.setMainDiagonal(letters)
         saveState()
-        // If puzzle solved show confetti and play success haptic/audio
-        if engine.state.solved {
-            triggerWinEffects()
-        }
+        maybeHandleCompletionState()
     }
 
     /// Called by drop delegates when a drag enters a target’s drop area. Updates the
@@ -237,6 +227,10 @@ public final class GameViewModel: ObservableObject {
     private func triggerWinEffects() {
         finished = true
         finishTime = elapsedTime
+        // Stop ticking once finished
+        timerCancellable?.cancel()
+        timerCancellable = nil
+        startDate = nil
         showMainInput = false
         withAnimation {
             showConfetti = true
@@ -247,6 +241,48 @@ public final class GameViewModel: ObservableObject {
         // Hide confetti after 3 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             self?.showConfetti = false
+        }
+    }
+
+    /// Triggers a subtle incorrect feedback: gentle haptic + quick board shake + brief toast (driven by showIncorrectFeedback in the view layer)
+    private func triggerIncorrectFeedback() {
+        // Haptic: a soft warning nudge
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.warning)
+        // Shake: increment trigger to animate a small horizontal shake
+        withAnimation(.easeIn(duration: 0.12)) {
+            shakeTrigger += 1
+            showIncorrectFeedback = true
+        }
+        // Auto-hide any visual overlays driven by showIncorrectFeedback after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
+            withAnimation(.easeOut(duration: 0.2)) {
+                self?.showIncorrectFeedback = false
+            }
+        }
+        clearMainDiagonal()
+    }
+
+    /// Clears the main diagonal both in the engine state and the bound input, so new typing doesn't instantly retrigger feedback.
+    private func clearMainDiagonal() {
+        let count = engine.state.mainDiagonal.cells.count
+        let empty = Array(repeating: "", count: count)
+        // Keep the UI text fields in sync so the board is no longer considered "full".
+        mainInput = empty
+        // Use the engine API to clear the diagonal (handles undo/redo and recomputeBoard).
+        engine.setMainDiagonal(empty)
+        saveState()
+    }
+
+    /// Call after any state change that might complete the puzzle: if solved, celebrate; if full but incorrect, nudge.
+    private func maybeHandleCompletionState() {
+        let allPlaced = engine.state.targets.allSatisfy { $0.pieceId != nil }
+        let mainFilled = engine.state.mainDiagonal.value.allSatisfy { !$0.isEmpty }
+        guard allPlaced && mainFilled else { return }
+        if engine.state.solved {
+            triggerWinEffects()
+        } else {
+            triggerIncorrectFeedback()
         }
     }
 
@@ -306,31 +342,25 @@ public final class GameViewModel: ObservableObject {
         defer { draggingPieceId = nil; dragHoverTargetId = nil }
         guard let pid = draggingPieceId, let tid = dragHoverTargetId else { return }
 
-        let success = engine.placePiece(pieceId: pid, on: tid)
+        let (success, replacedId) = engine.placeOrReplace(pieceId: pid, on: tid)
         if success {
+            // Newly placed chip should appear inactive in the pane
+            fadingPanePieceIds.insert(pid)
+            // The replaced chip (if any) returns to the pane; restore its interactivity
+            if let rid = replacedId { fadingPanePieceIds.remove(rid) }
+
             if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
                 withAnimation { showMainInput = true }
             }
-            fadeChipInPane()
             saveState()
+            maybeHandleCompletionState()
         } else {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }
     }
 
-    /// Marks the just-dropped piece to fade out in the selection pane and disables its drag there.
-    /// Call immediately after a successful placement while the pane still has the old view in the hierarchy.
-    @MainActor
-    public func fadeChipInPane() {
-        guard let pid = draggingPieceId else { return }
-        // Mark as fading so the pane can animate opacity/disable drag.
-        fadingPanePieceIds.insert(pid)
-        // Clear after a short delay; by then the pane will have diffed out this item.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.fadingPanePieceIds.remove(pid)
-        }
-    }
+
 
     /// Convenience for views to check whether a pane chip should be faded/disabled.
     public func isPaneChipInactive(_ pieceId: String) -> Bool {
@@ -342,5 +372,9 @@ public final class GameViewModel: ObservableObject {
     public func handleTap(on targetId: String) {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         removePiece(from: targetId)
+    }
+
+    deinit {
+        timerCancellable?.cancel()
     }
 }

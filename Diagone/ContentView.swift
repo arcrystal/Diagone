@@ -5,7 +5,12 @@ import SwiftUI
 /// optionally the main diagonal input. Relies heavily on `GameViewModel` to
 /// drive state and actions.
 struct ContentView: View {
-    @StateObject private var viewModel = GameViewModel()
+    @StateObject var viewModel: GameViewModel
+
+    @MainActor
+    init(viewModel: GameViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
     /// Local state tracking which row is currently highlighted during the win
     /// animation. This is advanced sequentially when the puzzle is solved to
     /// produce a celebratory sweep across the board.
@@ -69,27 +74,6 @@ struct ContentView: View {
                 Text(viewModel.elapsedTimeString)
                     .font(.system(.body, design: .monospaced))
                     .accessibilityLabel("Timer: \(viewModel.elapsedTimeString)")
-                Spacer(minLength: 10)
-                // TODO: ARE UNDO/ REDO WANTED?
-                // Undo button
-//                Button(action: { _ = viewModel.undo() }) {
-//                    Image(systemName: "arrow.uturn.backward")
-//                }
-//                .disabled(!canUndo)
-//                .accessibilityLabel("Undo")
-//                Spacer(minLength: 10)
-//                // Redo button
-//                Button(action: { _ = viewModel.redo() }) {
-//                    Image(systemName: "arrow.uturn.forward")
-//                }
-//                .disabled(!canRedo)
-//                .accessibilityLabel("Redo")
-//                Spacer(minLength: 10)
-                // Reset button
-                Button(action: viewModel.resetGame) {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .accessibilityLabel("Reset game")
             } else {
                 Button(action: viewModel.startGame) {
                     Text("Start")
@@ -108,19 +92,7 @@ struct ContentView: View {
     }
 
     // Determines whether undo is currently possible by inspecting the engine’s history.
-    private var canUndo: Bool {
-        // The view model doesn’t expose the history stack; we approximate by
-        // checking if any target has a placed piece or if main diagonal has letters.
-        return viewModel.engine.state.targets.contains(where: { $0.pieceId != nil }) || viewModel.engine.state.mainDiagonal.value.contains { !$0.isEmpty }
-    }
-    // Determines whether redo is currently possible. Since we clear future
-    // history on new moves we conservatively disable redo if there is no
-    // saved future state. The engine doesn’t expose its future stack so we
-    // approximate via other signals; here we simply always enable redo as
-    // there is no risk of crashing.
-    private var canRedo: Bool {
-        return true
-    }
+    
 
     // MARK: - Chip Pane
     /// Calculates an approximate cell size for chips based on the available width.
@@ -209,7 +181,7 @@ struct ContentView: View {
 #if DEBUG
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        ContentView(viewModel: GameViewModel(engine: GameEngine(puzzleDate: Date())))
     }
 }
 #endif
