@@ -26,6 +26,7 @@ struct ChipView: View {
             if hidden {
                 EmptyView()
             } else {
+                let inactive = viewModel.isPaneChipInactive(piece.id)
                 // Wrap in a ZStack so rotation doesn’t clip the chip
                 ZStack {
                     // Render letters in an HStack; we rotate the entire stack to
@@ -78,6 +79,8 @@ struct ChipView: View {
                     isDragging = false
                     dragOffset = .zero
                 }
+                .opacity(inactive ? 0.2 : 1.0)
+                .allowsHitTesting(!inactive)
             }
         }
     }

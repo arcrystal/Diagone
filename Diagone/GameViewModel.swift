@@ -37,6 +37,9 @@ public final class GameViewModel: ObservableObject {
     /// the dragged piece and are available. Cleared when the drag completes.
     @Published public var draggingPieceId: String? = nil
 
+    /// Piece ids currently fading out from the selection pane after a successful placement.
+    @Published public var fadingPanePieceIds: Set<String> = []
+
     /// The global screen coordinates of the current drag location. Updated by
     /// the chip's `DragGesture` on every movement. The board uses this to
     /// calculate which diagonal the user is hovering over.
@@ -168,43 +171,6 @@ public final class GameViewModel: ObservableObject {
             triggerWinEffects()
         }
     }
-
-//    /// Undo the most recent board mutation. If successful the main input visibility
-//    /// and stored letters are updated accordingly and persisted. Returns true on
-//    /// success.
-//    @discardableResult
-//    public func undo() -> Bool {
-//        let ok = engine.undo()
-//        if ok {
-//            // If any target becomes empty hide the main input
-//            if !engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
-//                showMainInput = false
-//            }
-//            // Update main input from engine
-//            mainInput = engine.state.mainDiagonal.value
-//            saveState()
-//        }
-//        return ok
-//    }
-//
-//    /// Redo the most recently undone board mutation. Mirrors undo in terms of
-//    /// updating UI state and persistence. Returns true on success.
-//    @discardableResult
-//    public func redo() -> Bool {
-//        let ok = engine.redo()
-//        if ok {
-//            // If all pieces placed show main input
-//            if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
-//                showMainInput = true
-//            }
-//            mainInput = engine.state.mainDiagonal.value
-//            saveState()
-//            if engine.state.solved {
-//                triggerWinEffects()
-//            }
-//        }
-//        return ok
-//    }
 
     /// Called by drop delegates when a drag enters a target’s drop area. Updates the
     /// highlighted target id so the UI can visually indicate the valid destination.
@@ -345,11 +311,31 @@ public final class GameViewModel: ObservableObject {
             if engine.state.targets.allSatisfy({ $0.pieceId != nil }) {
                 withAnimation { showMainInput = true }
             }
+            fadeChipInPane()
             saveState()
         } else {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }
+    }
+
+    /// Marks the just-dropped piece to fade out in the selection pane and disables its drag there.
+    /// Call immediately after a successful placement while the pane still has the old view in the hierarchy.
+    @MainActor
+    public func fadeChipInPane() {
+        guard let pid = draggingPieceId else { return }
+        // Mark as fading so the pane can animate opacity/disable drag.
+        fadingPanePieceIds.insert(pid)
+        // Clear after a short delay; by then the pane will have diffed out this item.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.fadingPanePieceIds.remove(pid)
+        }
+    }
+
+    /// Convenience for views to check whether a pane chip should be faded/disabled.
+    public func isPaneChipInactive(_ pieceId: String) -> Bool {
+        let placed = engine.state.pieces.first(where: { $0.id == pieceId })?.placedOn != nil
+        return placed || fadingPanePieceIds.contains(pieceId)
     }
     
     // MARK: - Taps
