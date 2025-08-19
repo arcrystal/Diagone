@@ -24,9 +24,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		57AED4712E45C94E00086070 /* Diagone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Diagone.app; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/Diagone.app"; sourceTree = "<absolute>"; };
-		57AED4722E45C94E00086070 /* DiagoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = DiagoneTests.xctest; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/Diagone.app/PlugIns/DiagoneTests.xctest"; sourceTree = "<absolute>"; };
-		57AED4732E45C94E00086070 /* DiagoneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = DiagoneUITests.xctest; path = "/Users/acrystal/Desktop/Coding/Diagone/build/Debug-iphoneos/DiagoneUITests-Runner.app/PlugIns/DiagoneUITests.xctest"; sourceTree = "<absolute>"; };
+		57AED5622E4C3C9000086070 /* Diagone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Diagone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57AED5632E4C3C9000086070 /* DiagoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiagoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		57AED5642E4C3C9000086070 /* DiagoneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiagoneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -66,6 +66,9 @@
 			isa = PBXGroup;
 			children = (
 				57AED2DC2E45A2CE00086070 /* Diagone */,
+				57AED5622E4C3C9000086070 /* Diagone.app */,
+				57AED5632E4C3C9000086070 /* DiagoneTests.xctest */,
+				57AED5642E4C3C9000086070 /* DiagoneUITests.xctest */,
 			);
 			sourceTree = "<group>";
 		};
@@ -91,7 +94,7 @@
 			packageProductDependencies = (
 			);
 			productName = Diagone;
-			productReference = 57AED4712E45C94E00086070 /* Diagone.app */;
+			productReference = 57AED5622E4C3C9000086070 /* Diagone.app */;
 			productType = "com.apple.product-type.application";
 		};
 		57AED2E62E45A2D000086070 /* DiagoneTests */ = {
@@ -111,7 +114,7 @@
 			packageProductDependencies = (
 			);
 			productName = DiagoneTests;
-			productReference = 57AED4722E45C94E00086070 /* DiagoneTests.xctest */;
+			productReference = 57AED5632E4C3C9000086070 /* DiagoneTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		57AED2F02E45A2D000086070 /* DiagoneUITests */ = {
@@ -131,7 +134,7 @@
 			packageProductDependencies = (
 			);
 			productName = DiagoneUITests;
-			productReference = 57AED4732E45C94E00086070 /* DiagoneUITests.xctest */;
+			productReference = 57AED5642E4C3C9000086070 /* DiagoneUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */

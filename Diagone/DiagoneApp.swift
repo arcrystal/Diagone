@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// The entry point for the Diagone application.
-///
-/// This small struct conforms to the `App` protocol and simply
-/// constructs the main window containing the root `ContentView`.
-/// The heavy lifting for game logic and UI lives elsewhere.
+/// Application entry point. Launches the game UI within a single window. The
+/// `@main` attribute ensures this struct is used as the main entry when
+/// building an iOS app. On launch the app displays `ContentView` which in
+/// turn instantiates its own view model.
 @main
 struct DiagoneApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootCoordinatorView(date: Date())
         }
     }
 }
