@@ -128,7 +128,13 @@ struct ContentView: View {
 
         // Prepare rows: for each length 1...5, take first chip and second chip
         let groups = Dictionary(grouping: viewModel.engine.state.pieces, by: \.length)
-        let sorted = { (xs: [GamePiece]) in xs.sorted { $0.id < $1.id } }
+        let sorted = { (xs: [GamePiece]) in
+            xs.sorted { lhs, rhs in
+                let li = Int(lhs.id.drop(while: { !$0.isNumber })) ?? 0
+                let ri = Int(rhs.id.drop(while: { !$0.isNumber })) ?? 0
+                return li < ri
+            }
+        }
         let row1Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.first }
         let row2Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.dropFirst().first }
 

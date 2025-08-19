@@ -287,14 +287,29 @@ public final class GameViewModel: ObservableObject {
     }
 
     private func fireConfettiThenSheet() {
-        // 2) Confetti burst (short and sweet)
-        withAnimation { showConfetti = true }
-        let confettiDuration: TimeInterval = 2
-        DispatchQueue.main.asyncAfter(deadline: .now() + confettiDuration) { [weak self] in
+        // Present the sheet at (almost) the same time as the confetti so they overlap
+        withAnimation {
+            showConfetti = true
+            showWinSheet = true
+        }
+
+        // Create a second quick burst for a more organic feel
+        let firstPause: TimeInterval = 1.1
+        DispatchQueue.main.asyncAfter(deadline: .now() + firstPause) { [weak self] in
+            guard let self = self else { return }
+            // Briefly turn off and on to trigger a second burst
+            withAnimation(.easeOut(duration: 0.08)) { self.showConfetti = false }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                withAnimation { self?.showConfetti = true }
+            }
+        }
+
+        // End the confetti after the combined sequence
+        let totalDuration: TimeInterval = 2.8
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) { [weak self] in
             guard let self = self else { return }
             withAnimation { self.showConfetti = false }
-            // 3) Results sheet
-            self.showWinSheet = true
+            // Keep the sheet up until the user dismisses it
         }
     }
 
