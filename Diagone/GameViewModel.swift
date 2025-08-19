@@ -54,6 +54,13 @@ public final class GameViewModel: ObservableObject {
     /// converted into board space when determining hover state. It will be
     /// `.zero` until the board appears on screen.
     @Published public var boardFrameGlobal: CGRect = .zero
+    
+    // Win sequence state
+    @Published public var winBounceIndex: Int? = nil
+    /// Set of flattened board indices (0..35) currently bouncing. Used for diagonal wave animation.
+    @Published public var winBounceIndices: Set<Int> = []
+    @Published public var showWinSheet: Bool = false
+    private var winWaveTask: Task<Void, Never>?
 
     private var timerCancellable: AnyCancellable?
     private var startDate: Date?
@@ -221,26 +228,77 @@ public final class GameViewModel: ObservableObject {
         }
         return nil
     }
-
-    /// Triggers the win effects: confetti burst, success haptic and optionally a
-    /// sound. Confetti will automatically hide after a short delay.
+    
     private func triggerWinEffects() {
         finished = true
         finishTime = elapsedTime
-        // Stop ticking once finished
         timerCancellable?.cancel()
         timerCancellable = nil
         startDate = nil
         showMainInput = false
-        withAnimation {
-            showConfetti = true
+
+        // Don't show confetti until the wave completes
+        winWaveTask?.cancel()
+        showConfetti = false
+        runWinSequence()
+    }
+
+    private func runWinSequence() {
+        winWaveTask?.cancel()
+
+        let totalSteps = 11 // 0...10 anti-diagonals on a 6x6
+        // For wave overlap: stepInterval < bounce duration (response)
+        let stepInterval: TimeInterval = 0.12 // Slower: doubled from 0.06
+        let bounceResponse: Double = 0.7      // Slower: doubled from 0.35
+        let bounceDamping: Double = 0.55
+        let bounceBlend: Double = 0.08
+        let clearDelay: TimeInterval = 0.44   // Slower: doubled from 0.22 for consistent overlap
+
+        winWaveTask = Task { @MainActor in
+            for step in 0..<totalSteps {
+                // Start bounce for this anti-diagonal (longer spring for overlap)
+                withAnimation(.spring(response: bounceResponse, dampingFraction: bounceDamping, blendDuration: bounceBlend)) {
+                    self.winBounceIndex = step
+                }
+                // Schedule clearing winBounceIndex with a delay, so the next step's bounce overlaps
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(clearDelay * 1_000_000_000))
+                    // Only clear if not overwritten by a new step
+                    if self.winBounceIndex == step {
+                        withAnimation(.easeOut(duration: 0.08)) {
+                            self.winBounceIndex = nil
+                        }
+                    }
+                }
+                // Wait before starting next step (overlap: stepInterval < bounce duration)
+                if step < totalSteps - 1 {
+                    try? await Task.sleep(nanoseconds: UInt64(stepInterval * 1_000_000_000))
+                }
+            }
+            // After all 11 steps, fire confetti/sheet
+            self.showConfetti = true
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.showConfetti = false
+            }
         }
-        // Success haptic
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-        // Hide confetti after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            self?.showConfetti = false
+    }
+
+    deinit {
+        timerCancellable?.cancel()
+        winWaveTask?.cancel()
+    }
+
+    private func fireConfettiThenSheet() {
+        // 2) Confetti burst (short and sweet)
+        withAnimation { showConfetti = true }
+        let confettiDuration: TimeInterval = 1.2
+        DispatchQueue.main.asyncAfter(deadline: .now() + confettiDuration) { [weak self] in
+            guard let self = self else { return }
+            withAnimation { self.showConfetti = false }
+            // 3) Results sheet
+            self.showWinSheet = true
         }
     }
 
@@ -360,8 +418,6 @@ public final class GameViewModel: ObservableObject {
         }
     }
 
-
-
     /// Convenience for views to check whether a pane chip should be faded/disabled.
     public func isPaneChipInactive(_ pieceId: String) -> Bool {
         let placed = engine.state.pieces.first(where: { $0.id == pieceId })?.placedOn != nil
@@ -372,9 +428,5 @@ public final class GameViewModel: ObservableObject {
     public func handleTap(on targetId: String) {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         removePiece(from: targetId)
-    }
-
-    deinit {
-        timerCancellable?.cancel()
     }
 }

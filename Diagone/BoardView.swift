@@ -1,6 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct BoardFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
 /// Renders the 6×6 game board. Displays individual cells with letters, highlights
 /// for the main diagonal and drag feedback, and overlays drop targets on top of
 /// the board grid. The board listens to the `GameViewModel` for state and
@@ -10,6 +15,7 @@ struct BoardView: View {
     /// Optional row index to highlight during the win animation. When non‑nil
     /// the specified row is tinted with the accent colour.
     var highlightRow: Int?
+    
 
     var body: some View {
         GeometryReader { geo in
@@ -25,6 +31,17 @@ struct BoardView: View {
 
                 // Targets overlay layer (tap + drop hit areas)
                 TargetsOverlayLayer(cellSize: cellSize)
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: BoardFrameKey.self,
+                                           value: proxy.frame(in: .global))
+                }
+            )
+            .onPreferenceChange(BoardFrameKey.self) { rect in
+                if viewModel.boardFrameGlobal != rect {
+                    viewModel.boardFrameGlobal = rect
+                }
             }
             .overlay(alignment: .bottom) {
                 if viewModel.showIncorrectFeedback {
@@ -53,6 +70,7 @@ fileprivate struct GridLayer: View {
     let cellSize: CGFloat
 
     var body: some View {
+        
         let engine = viewModel.engine
         let board  = engine.state.board
         let mainCells = Set(engine.state.mainDiagonal.cells)
@@ -69,6 +87,9 @@ fileprivate struct GridLayer: View {
                 HStack(spacing: 0) {
                     ForEach(0..<6, id: \.self) { c in
                         let id = Cell(row: r, col: c)
+                        // Wave step: all cells on the same anti-diagonal share the same step (row+col).
+                        let waveStep = r + c
+                        let isBouncing = (viewModel.winBounceIndex == waveStep)
                         Rectangle()
                             .fill(mainCells.contains(id) ? Color.mainDiagonal : Color.boardCell)
                             .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
@@ -85,6 +106,8 @@ fileprivate struct GridLayer: View {
                                 }
                             }
                             .frame(width: cellSize, height: cellSize)
+                            .scaleEffect(isBouncing ? 1.18 : 1.0)
+                            .animation(.interpolatingSpring(stiffness: 500, damping: 5), value: isBouncing)
                     }
                 }
             }

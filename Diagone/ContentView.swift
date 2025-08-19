@@ -61,6 +61,15 @@ struct ContentView: View {
                 }
             }
         )
+        .sheet(isPresented: $viewModel.showWinSheet) {
+            WinSummarySheet(
+                elapsed: viewModel.finishTime,
+                onShare: { /* hook up later if you want */ },
+                onDone: { viewModel.showWinSheet = false }
+            )
+            .presentationDetents([.fraction(0.38), .medium]) // feels NYT-ish
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Header
@@ -176,12 +185,59 @@ struct ContentView: View {
     }
 }
 
-// Preview for development in Xcode. Not used by the production build but
-// included for completeness.
-#if DEBUG
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView(viewModel: GameViewModel(engine: GameEngine(puzzleDate: Date())))
+fileprivate struct WinSummarySheet: View {
+    let elapsed: TimeInterval
+    var onShare: () -> Void
+    var onDone:  () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Title
+            HStack {
+                Spacer()
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                Text("Puzzle Solved")
+                    .font(.title2.bold())
+                Spacer()
+            }
+
+            // Big time readout
+            Text(formattedTime(elapsed))
+                .font(.system(size: 40, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+
+            // Action row
+            HStack(spacing: 12) {
+                Button {
+                    onShare()
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .font(.headline)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(Capsule().fill(Color(UIColor.secondarySystemBackground)))
+                }
+
+                Button {
+                    onDone()
+                } label: {
+                    Text("Done")
+                        .font(.headline)
+                        .padding(.horizontal, 22).padding(.vertical, 10)
+                        .background(Capsule().fill(Color.primary))
+                        .foregroundStyle(Color(UIColor.systemBackground))
+                }
+            }
+            .padding(.top, 6)
+
+            Spacer(minLength: 4)
+        }
+        .padding(.top, 20)
+        .padding(.horizontal, 20)
+    }
+
+    private func formattedTime(_ t: TimeInterval) -> String {
+        let m = Int(t) / 60, s = Int(t) % 60
+        return String(format: "%02d:%02d", m, s)
     }
 }
-#endif
