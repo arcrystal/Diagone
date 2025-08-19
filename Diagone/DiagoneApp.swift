@@ -8,7 +8,7 @@ import SwiftUI
 struct DiagoneApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView(viewModel: GameViewModel(engine: GameEngine(puzzleDate: Date())))
+            RootCoordinatorView(date: Date())
         }
     }
 }
