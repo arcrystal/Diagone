@@ -61,9 +61,6 @@ fileprivate enum PuzzleLibrary {
         if let url = bundle.url(forResource: resource, withExtension: "json", subdirectory: subdirectory),
            let data = try? Data(contentsOf: url),
            let map = decodeMap(from: data) {
-            #if DEBUG
-            print("PuzzleLibrary.load: loaded \(url.lastPathComponent) from subdirectory '" + subdirectory + "'")
-            #endif
             return map
         }
 
@@ -71,10 +68,6 @@ fileprivate enum PuzzleLibrary {
         if let url = bundle.url(forResource: resource, withExtension: "json"),
            let data = try? Data(contentsOf: url),
            let map = decodeMap(from: data) {
-            #if DEBUG
-            print("PuzzleLibrary.load: loaded \(url.lastPathComponent) from bundle root")
-            #endif
-            print(map)
             return map
         }
 
@@ -82,9 +75,6 @@ fileprivate enum PuzzleLibrary {
         if let url = bundle.url(forResource: "Puzzles", withExtension: "json"),
            let data = try? Data(contentsOf: url),
            let map = decodeMap(from: data) {
-            #if DEBUG
-            print("PuzzleLibrary.load: loaded legacy Puzzles.json from bundle root")
-            #endif
             return map
         }
 
@@ -93,26 +83,15 @@ fileprivate enum PuzzleLibrary {
             if let hit = urls.first(where: { $0.lastPathComponent.lowercased() == "puzzles.json" }),
                let data = try? Data(contentsOf: hit),
                let map = decodeMap(from: data) {
-                #if DEBUG
-                print("PuzzleLibrary.load: loaded via scan at \(hit.path)")
-                #endif
                 return map
             }
             // Secondary: any JSON under a Puzzles/ directory
             if let hit = urls.first(where: { $0.path.contains("/Puzzles/") && $0.lastPathComponent.hasSuffix(".json") }),
                let data = try? Data(contentsOf: hit),
                let map = decodeMap(from: data) {
-                #if DEBUG
-                print("PuzzleLibrary.load: loaded from Puzzles/ via scan at \(hit.lastPathComponent)")
-                #endif
                 return map
             }
         }
-
-        #if DEBUG
-        let all = bundle.urls(forResourcesWithExtension: "json", subdirectory: nil)?.map { $0.lastPathComponent } ?? []
-        print("PuzzleLibrary.load: FAILED to locate puzzles.json. Tried resource='\(resource)', subdirectory='\(subdirectory)'. JSONs in bundle: \(all)")
-        #endif
         return nil
     }
 }
@@ -515,7 +494,6 @@ public final class GameEngine: ObservableObject {
     /// after the removal to ensure overlapping diagonals remain intact.
     @discardableResult
     public func removePiece(from targetId: String) -> String? {
-        print("removePiece(from: \(targetId))")
         guard let targetIndex = state.targets.firstIndex(where: { $0.id == targetId }),
               let pieceId = state.targets[targetIndex].pieceId,
               let pieceIndex = state.pieces.firstIndex(where: { $0.id == pieceId }) else {

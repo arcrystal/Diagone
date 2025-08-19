@@ -88,7 +88,6 @@ public final class GameViewModel: ObservableObject {
         guard !started else { return }
         showMainInput = false
         engine.reset()
-        print(engine.puzzleRowWords)
         mainInput = Array(repeating: "", count: 6)
         started = true
         startDate = Date()
