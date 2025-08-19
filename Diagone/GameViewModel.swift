@@ -275,13 +275,10 @@ public final class GameViewModel: ObservableObject {
                     try? await Task.sleep(nanoseconds: UInt64(stepInterval * 1_000_000_000))
                 }
             }
-            // After all 11 steps, fire confetti/sheet
-            self.showConfetti = true
+            // After all 11 steps, fire confetti then results sheet
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                self?.showConfetti = false
-            }
+            self.fireConfettiThenSheet()
         }
     }
 
@@ -293,7 +290,7 @@ public final class GameViewModel: ObservableObject {
     private func fireConfettiThenSheet() {
         // 2) Confetti burst (short and sweet)
         withAnimation { showConfetti = true }
-        let confettiDuration: TimeInterval = 1.2
+        let confettiDuration: TimeInterval = 2
         DispatchQueue.main.asyncAfter(deadline: .now() + confettiDuration) { [weak self] in
             guard let self = self else { return }
             withAnimation { self.showConfetti = false }
@@ -370,29 +367,62 @@ public final class GameViewModel: ObservableObject {
         guard let pid = draggingPieceId, boardFrameGlobal != .zero else {
             dragHoverTargetId = nil; return
         }
-        // Convert to board-local coords
+
+        // Convert to board-local coords (points)
         let p = CGPoint(x: globalLocation.x - boardFrameGlobal.minX,
                         y: globalLocation.y - boardFrameGlobal.minY)
 
-        let cell = boardFrameGlobal.size.width / 6.0
-        let pad  = cell * 0.30 // fuzzy hover
+        // Board metrics
+        let side = min(boardFrameGlobal.size.width, boardFrameGlobal.size.height)
+        let cell = side / 6.0
+
+        // Only consider targets that match the dragged piece length
         let valid = Set(engine.validTargets(for: pid))
 
-        var hovered: String? = nil
-        for t in engine.state.targets where valid.contains(t.id) {
-            let rows = t.cells.map(\.row), cols = t.cells.map(\.col)
-            guard let minR = rows.min(), let maxR = rows.max(),
-                  let minC = cols.min(), let maxC = cols.max() else { continue }
-
-            let rect = CGRect(x: CGFloat(minC) * cell,
-                              y: CGFloat(minR) * cell,
-                              width:  CGFloat(maxC - minC + 1) * cell,
-                              height: CGFloat(maxR - minR + 1) * cell)
-                .insetBy(dx: -pad, dy: -pad)
-
-            if rect.contains(p) { hovered = t.id; break }
+        // Helper: distance from point to the line segment defined by the target's first/last cell centers
+        func distanceToDiagonal(_ t: GameTarget, point: CGPoint) -> (distance: CGFloat, length: Int) {
+            guard let first = t.cells.first, let last = t.cells.last else { return (.greatestFiniteMagnitude, t.length) }
+            // Centers of start and end cells in board-local space
+            let a = CGPoint(x: (CGFloat(first.col) + 0.5) * cell,
+                            y: (CGFloat(first.row) + 0.5) * cell)
+            let b = CGPoint(x: (CGFloat(last.col) + 0.5) * cell,
+                            y: (CGFloat(last.row) + 0.5) * cell)
+            let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
+            let ap = CGPoint(x: point.x - a.x, y: point.y - a.y)
+            let abLen2 = max(ab.x*ab.x + ab.y*ab.y, 0.0001)
+            var tParam = (ap.x*ab.x + ap.y*ab.y) / abLen2
+            tParam = min(max(tParam, 0.0), 1.0) // clamp to segment
+            let proj = CGPoint(x: a.x + ab.x * tParam, y: a.y + ab.y * tParam)
+            let dx = point.x - proj.x
+            let dy = point.y - proj.y
+            let d = sqrt(dx*dx + dy*dy)
+            return (d, t.length)
         }
-        dragHoverTargetId = hovered
+
+        // Choose the closest valid diagonal under a length-aware radius threshold ("sausage" test)
+        var bestId: String? = nil
+        var bestDist: CGFloat = .greatestFiniteMagnitude
+
+        for t in engine.state.targets where valid.contains(t.id) {
+            let (dist, len) = distanceToDiagonal(t, point: p)
+            // Length-aware radius: slightly looser for longer diagonals.
+            // len=1 => ~0.48*cell, len=5 => ~0.408*cell
+            let radius = cell * (0.48 - 0.018 * CGFloat(len - 1))
+            // Also reject points that are far beyond the segment ends by adding a mild bounding box check.
+            let rows = t.cells.map(\.row)
+            let cols = t.cells.map(\.col)
+            if let minR = rows.min(), let maxR = rows.max(), let minC = cols.min(), let maxC = cols.max() {
+                let box = CGRect(x: CGFloat(minC) * cell - cell * 0.25,
+                                 y: CGFloat(minR) * cell - cell * 0.25,
+                                 width:  CGFloat(maxC - minC + 1) * cell + cell * 0.5,
+                                 height: CGFloat(maxR - minR + 1) * cell + cell * 0.5)
+                guard box.contains(p) else { continue }
+            }
+            guard dist <= radius else { continue }
+            if dist < bestDist { bestDist = dist; bestId = t.id }
+        }
+
+        dragHoverTargetId = bestId
     }
 
     @MainActor
