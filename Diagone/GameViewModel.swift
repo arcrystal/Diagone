@@ -322,7 +322,7 @@ public final class GameViewModel: ObservableObject {
         runWinSequence()
     }
 
-    private func runWinSequence() {
+    func runWinSequence() {
         winWaveTask?.cancel()
 
         let totalSteps = 11
@@ -555,5 +555,13 @@ public final class GameViewModel: ObservableObject {
             self.elapsedTime = Date().timeIntervalSince(s)
             self.saveDailyMeta(started: true, finished: false, elapsedTime: self.elapsedTime)
         }
+    }
+    
+    // Opens a previous date’s puzzle. TODO: Replace with engine-backed historical loading.
+    public func openPuzzle(for date: Date) {
+        // Placeholder implementation:
+        // If you already have an engine API for historical puzzles, call it here.
+        // e.g., engine.loadDaily(date: date); reset timers; etc.
+        startGame()
     }
 }

@@ -156,7 +156,7 @@ struct ContentView: View {
                     UIApplication.shared.endEditing()
                     showHub = true
                 } label: {
-                    Image(systemName: "chevron.backward")
+                    Label("Back", systemImage: "chevron.backward")
                         .font(.headline)
                         .padding(.leading, 12)
                         .accessibilityLabel("Back to hub")
@@ -169,7 +169,7 @@ struct ContentView: View {
                     UIApplication.shared.endEditing()
                     showHub = true
                 } label: {
-                    Image(systemName: "chevron.backward")
+                    Label("Back", systemImage: "chevron.backward")
                         .font(.headline)
                         .padding(.leading, 12)
                         .accessibilityLabel("Back to hub")
@@ -253,10 +253,11 @@ struct ContentView: View {
                         Button {
                             // (future) Show detailed stats when implemented
                         } label: {
-                            Label("View Stats", systemImage: "chart.bar.fill")
+                            Text("Play More")
                                 .font(.headline)
-                                .padding(.horizontal, 18).padding(.vertical, 10)
-                                .background(Capsule().fill(Color(UIColor.secondarySystemBackground)))
+                                .padding(.horizontal, 22).padding(.vertical, 10)
+                                .background(Capsule().fill(Color.primary))
+                                .foregroundStyle(Color(UIColor.systemBackground))
                         }
                         Button {
                             UIApplication.shared.endEditing()
@@ -266,8 +267,9 @@ struct ContentView: View {
                                 UIApplication.shared.endEditing()
                             }
                             showHub = false // return to board
+                            viewModel.runWinSequence()
                         } label: {
-                            Text("Close")
+                            Text("View Today's Puzzle")
                                 .font(.headline)
                                 .padding(.horizontal, 22).padding(.vertical, 10)
                                 .background(Capsule().fill(Color.primary))
