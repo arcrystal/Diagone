@@ -56,28 +56,87 @@ public final class GameViewModel: ObservableObject {
     @Published public var boardFrameGlobal: CGRect = .zero
     
     // Win sequence state
-    @Published public var winBounceIndex: Int? = nil
+//    @Published public var winBounceIndex: Int? = nil
     /// Set of flattened board indices (0..35) currently bouncing. Used for diagonal wave animation.
-    @Published public var winBounceIndices: Set<Int> = []
-    @Published public var showWinSheet: Bool = false
+//    @Published public var winBounceIndices: Set<Int> = []
+    @Published public var winWaveTrigger: Int = 0
     private var winWaveTask: Task<Void, Never>?
+    
 
     private var timerCancellable: AnyCancellable?
     private var startDate: Date?
     private let storageKey = "diagone_state"
 
+    // MARK: - Lightweight per-day meta persistence (hub state)
+    private struct DailyMeta: Codable {
+        var started: Bool
+        var finished: Bool
+        var elapsedTime: TimeInterval
+        var finishTime: TimeInterval
+        var lastUpdated: Date
+    }
+
+    /// Key used to persist the hub state for today's puzzle date (yyyy-MM-dd, UTC).
+    private var metaKey: String {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone(secondsFromGMT: 0) // daily boundary stability
+        fmt.dateFormat = "yyyy-MM-dd"
+        let day = fmt.string(from: Date())
+        return "diagone_meta_\(day)"
+    }
+
+    private func loadDailyMeta() -> DailyMeta? {
+        guard let data = UserDefaults.standard.data(forKey: metaKey) else { return nil }
+        return try? JSONDecoder().decode(DailyMeta.self, from: data)
+    }
+
+    private func saveDailyMeta(started: Bool? = nil,
+                               finished: Bool? = nil,
+                               elapsedTime: TimeInterval? = nil,
+                               finishTime: TimeInterval? = nil) {
+        var current = loadDailyMeta() ?? DailyMeta(started: false, finished: false, elapsedTime: 0, finishTime: 0, lastUpdated: Date())
+        if let s = started { current.started = s }
+        if let f = finished { current.finished = f }
+        if let e = elapsedTime { current.elapsedTime = e }
+        if let ft = finishTime { current.finishTime = ft }
+        current.lastUpdated = Date()
+        if let data = try? JSONEncoder().encode(current) {
+            UserDefaults.standard.set(data, forKey: metaKey)
+        }
+    }
+
     public init(engine: GameEngine = GameEngine(puzzleDate: Date())) {
         self.engine = engine
-        // Try to restore from saved progress
-        if let restored = Self.loadSavedState(for: engine.configuration) {
-            // Restore must go through the engine to recompute board and clear
-            // history. Use a dedicated restore API so that state invariants are
-            // maintained.
+
+        // Restore lightweight hub state for today's puzzle (by date key)
+        let meta = self.loadDailyMeta()
+        if let meta = meta {
+            self.started = meta.started
+            self.finished = meta.finished
+            self.elapsedTime = meta.elapsedTime
+            self.finishTime = meta.finishTime
+        } else {
+            // No meta for today -> ensure we start fresh
+            self.started = false
+            self.finished = false
+            self.elapsedTime = 0
+            self.finishTime = 0
+        }
+
+        // Only restore board state if today's meta indicates we started today.
+        if meta?.started == true, let restored = Self.loadSavedState(for: engine.configuration) {
             engine.restore(restored)
             // Determine if the main input should be visible based on number of placed pieces
             let allPlaced = engine.state.targets.allSatisfy { $0.pieceId != nil }
             self.showMainInput = allPlaced
             self.mainInput = engine.state.mainDiagonal.value
+        } else {
+            // Fresh day -> clear any stale state from prior day
+            engine.reset()
+            self.showMainInput = false
+            self.mainInput = Array(repeating: "", count: 6)
         }
     }
 
@@ -90,6 +149,8 @@ public final class GameViewModel: ObservableObject {
         engine.reset()
         mainInput = Array(repeating: "", count: 6)
         started = true
+        // Persist meta: mark started, reset finished, elapsed/finish time
+        saveDailyMeta(started: true, finished: false, elapsedTime: 0, finishTime: 0)
         startDate = Date()
         elapsedTime = 0
         // Cancel any existing timer
@@ -100,6 +161,7 @@ public final class GameViewModel: ObservableObject {
             .sink { [weak self] _ in
                 guard let self = self, let start = self.startDate else { return }
                 self.elapsedTime = Date().timeIntervalSince(start)
+                self.saveDailyMeta(elapsedTime: self.elapsedTime)
             }
     }
 
@@ -116,6 +178,7 @@ public final class GameViewModel: ObservableObject {
     /// conflicts) this method triggers haptic feedback and returns false.
     @discardableResult
     public func handleDrop(pieceId: String, onto targetId: String) -> Bool {
+        guard !finished else { return false }
         let (success, replacedId) = engine.placeOrReplace(pieceId: pieceId, on: targetId)
         if success {
             // Newly placed chip should appear inactive in the pane
@@ -138,15 +201,21 @@ public final class GameViewModel: ObservableObject {
     /// Removes the piece occupying the given target and returns it to the panel. Also
     /// hides the main input if any piece is removed. Persisted state is updated.
     public func removePiece(from targetId: String) {
+        guard !finished else { return }
         guard let removedId = engine.removePiece(from: targetId) else { return }
         // Piece is coming back to the pane; restore interactivity/opacity there.
         fadingPanePieceIds.remove(removedId)
         // When a piece is removed the board is no longer complete so hide the main diagonal input until placement resumes
         withAnimation(.easeInOut(duration: 0.1)) {
-            showMainInput = false
+            clearMainDiagonal()
         }
         // Persist progress
         saveState()
+        // If user is making changes, ensure we are not marked finished
+        if finished {
+            finished = false
+            saveDailyMeta(finished: false)
+        }
     }
 
     /// Writes the letters from the UI bound main input into the engine. This method
@@ -154,6 +223,7 @@ public final class GameViewModel: ObservableObject {
     /// state. If the puzzle becomes solved after this operation the confetti is
     /// triggered.
     public func commitMainInput() {
+        guard !finished else { return }
         // Normalize input to uppercase single characters
         var letters: [String] = []
         for ch in mainInput {
@@ -165,6 +235,7 @@ public final class GameViewModel: ObservableObject {
         }
         engine.setMainDiagonal(letters)
         saveState()
+        saveDailyMeta(elapsedTime: elapsedTime)
         maybeHandleCompletionState()
     }
 
@@ -231,6 +302,15 @@ public final class GameViewModel: ObservableObject {
     private func triggerWinEffects() {
         finished = true
         finishTime = elapsedTime
+        // Ensure any keyboard is dismissed on win
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+        DispatchQueue.main.async {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                            to: nil, from: nil, for: nil)
+        }
+        // Persist meta so the hub shows "completed" on relaunch
+        saveDailyMeta(started: true, finished: true, elapsedTime: elapsedTime, finishTime: finishTime)
         timerCancellable?.cancel()
         timerCancellable = nil
         startDate = nil
@@ -245,39 +325,19 @@ public final class GameViewModel: ObservableObject {
     private func runWinSequence() {
         winWaveTask?.cancel()
 
-        let totalSteps = 11 // 0...10 anti-diagonals on a 6x6
-        // For wave overlap: stepInterval < bounce duration (response)
-        let stepInterval: TimeInterval = 0.12 // Slower: doubled from 0.06
-        let bounceResponse: Double = 0.7      // Slower: doubled from 0.35
-        let bounceDamping: Double = 0.55
-        let bounceBlend: Double = 0.08
-        let clearDelay: TimeInterval = 0.44   // Slower: doubled from 0.22 for consistent overlap
+        let totalSteps = 11
+        let perStep: Duration = .milliseconds(70) // staging gap between diagonals
+        let tail: Duration = .milliseconds(420)   // time for last bounces to settle
 
-        winWaveTask = Task { @MainActor in
-            for step in 0..<totalSteps {
-                // Start bounce for this anti-diagonal (longer spring for overlap)
-                withAnimation(.spring(response: bounceResponse, dampingFraction: bounceDamping, blendDuration: bounceBlend)) {
-                    self.winBounceIndex = step
-                }
-                // Schedule clearing winBounceIndex with a delay, so the next step's bounce overlaps
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: UInt64(clearDelay * 1_000_000_000))
-                    // Only clear if not overwritten by a new step
-                    if self.winBounceIndex == step {
-                        withAnimation(.easeOut(duration: 0.08)) {
-                            self.winBounceIndex = nil
-                        }
-                    }
-                }
-                // Wait before starting next step (overlap: stepInterval < bounce duration)
-                if step < totalSteps - 1 {
-                    try? await Task.sleep(nanoseconds: UInt64(stepInterval * 1_000_000_000))
-                }
-            }
-            // After all 11 steps, fire confetti then results sheet
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            self.fireConfettiThenSheet()
+        winWaveTask = Task(priority: .userInitiated) { @MainActor in
+            // Fire one model change; views do the staggering
+            self.winWaveTrigger &+= 1
+
+            let clock = ContinuousClock()
+            try? await clock.sleep(for: perStep * (totalSteps - 1) + tail)
+
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            self.startConfettiSequence()
         }
     }
 
@@ -286,18 +346,15 @@ public final class GameViewModel: ObservableObject {
         winWaveTask?.cancel()
     }
 
-    private func fireConfettiThenSheet() {
-        // Present the sheet at (almost) the same time as the confetti so they overlap
-        withAnimation {
-            showConfetti = true
-            showWinSheet = true
-        }
 
-        // Create a second quick burst for a more organic feel
+    private func startConfettiSequence() {
+        // Present confetti (no sheets)
+        withAnimation { self.showConfetti = true }
+
+        // Second quick burst for a more organic feel
         let firstPause: TimeInterval = 1.1
         DispatchQueue.main.asyncAfter(deadline: .now() + firstPause) { [weak self] in
             guard let self = self else { return }
-            // Briefly turn off and on to trigger a second burst
             withAnimation(.easeOut(duration: 0.08)) { self.showConfetti = false }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
                 withAnimation { self?.showConfetti = true }
@@ -307,9 +364,7 @@ public final class GameViewModel: ObservableObject {
         // End the confetti after the combined sequence
         let totalDuration: TimeInterval = 2.8
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) { [weak self] in
-            guard let self = self else { return }
-            withAnimation { self.showConfetti = false }
-            // Keep the sheet up until the user dismisses it
+            withAnimation { self?.showConfetti = false }
         }
     }
 
@@ -358,6 +413,7 @@ public final class GameViewModel: ObservableObject {
     // MARK: - Dragging Hooks
     @MainActor
     public func beginDragging(pieceId: String) {
+        guard !finished else { return }
         draggingPieceId = pieceId
         dragHoverTargetId = nil
     }
@@ -378,7 +434,7 @@ public final class GameViewModel: ObservableObject {
     /// be known (non‑zero) for this method to operate.
     @MainActor
     public func updateDrag(globalLocation: CGPoint) {
-        guard let pid = draggingPieceId, boardFrameGlobal != .zero else {
+        guard !finished, let pid = draggingPieceId, boardFrameGlobal != .zero else {
             dragHoverTargetId = nil; return
         }
 
@@ -441,6 +497,7 @@ public final class GameViewModel: ObservableObject {
 
     @MainActor
     public func finishDrag() {
+        guard !finished else { return }
         defer { draggingPieceId = nil; dragHoverTargetId = nil }
         guard let pid = draggingPieceId, let tid = dragHoverTargetId else { return }
 
@@ -470,7 +527,33 @@ public final class GameViewModel: ObservableObject {
     
     // MARK: - Taps
     public func handleTap(on targetId: String) {
+        guard !finished else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         removePiece(from: targetId)
+        
+    }
+    /// Pauses the in-progress game timer and persists current elapsed time.
+    public func pause() {
+        guard started, !finished else { return }
+        timerCancellable?.cancel()
+        timerCancellable = nil
+        startDate = nil
+        saveDailyMeta(started: true, finished: false, elapsedTime: elapsedTime)
+    }
+    
+    /// Resumes the in-progress game timer from the current `elapsedTime`.
+    @MainActor
+    public func resume() {
+        guard started, !finished else { return }
+        // Avoid duplicating timers
+        if timerCancellable != nil { return }
+        let start = Date().addingTimeInterval(-elapsedTime)
+        self.startDate = start
+        let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+        self.timerCancellable = ticker.sink { [weak self] _ in
+            guard let self = self, let s = self.startDate else { return }
+            self.elapsedTime = Date().timeIntervalSince(s)
+            self.saveDailyMeta(started: true, finished: false, elapsedTime: self.elapsedTime)
+        }
     }
 }

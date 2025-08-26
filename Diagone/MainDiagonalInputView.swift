@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// An inline input for the main diagonal. Displays six single‑character text
 /// fields side by side. Each field enforces a single uppercase letter and moves
@@ -8,13 +9,11 @@ struct MainDiagonalInputView: View {
     @EnvironmentObject private var viewModel: GameViewModel
     @Binding var input: [String]
     let cellSize: CGFloat
-    // A focus state to move between fields when typing
-    @FocusState private var focusedIndex: Int?
 
     var body: some View {
         // A zero‑footprint keyboard proxy that becomes first responder
         KeyboardProxy(
-            isActive: .constant(viewModel.showMainInput),
+            isActive: .constant(viewModel.showMainInput && !viewModel.finished),
             onInsert: { ch in
                 // Accept only A–Z characters
                 guard let scalar = ch.unicodeScalars.first,
@@ -36,11 +35,31 @@ struct MainDiagonalInputView: View {
         .opacity(0.01)
         .accessibilityHidden(true)
         .onChange(of: viewModel.showMainInput, initial: false) { _, newValue in
-            // Toggle first responder on state changes
-            KeyboardProxyManager.shared.setActive(newValue)
+            // Toggle first responder on state changes, but never activate after a win
+            KeyboardProxyManager.shared.setActive(newValue && !viewModel.finished)
         }
         .onAppear {
-            KeyboardProxyManager.shared.setActive(viewModel.showMainInput)
+            KeyboardProxyManager.shared.setActive(viewModel.showMainInput && !viewModel.finished)
+        }
+        .onChange(of: viewModel.finished, initial: false) { _, didFinish in
+            if didFinish {
+                KeyboardProxyManager.shared.setActive(false)
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                DispatchQueue.main.async {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            KeyboardProxyManager.shared.setActive(false)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            KeyboardProxyManager.shared.setActive(false)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            if viewModel.finished {
+                KeyboardProxyManager.shared.setActive(false)
+            }
         }
     }
 }

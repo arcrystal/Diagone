@@ -1,6 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct TileBounceState { var scale: CGFloat = 1.0 }
+
 private struct BoardFrameKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
@@ -68,6 +70,51 @@ struct BoardView: View {
 fileprivate struct GridLayer: View {
     @EnvironmentObject private var viewModel: GameViewModel
     let cellSize: CGFloat
+    
+    @ViewBuilder
+    private func makeCell(isMain: Bool,
+                          isHover: Bool,
+                          letter: String,
+                          cellSize: CGFloat,
+                          delay: Double) -> some View {
+        let baseRect = Rectangle()
+            .fill(isMain ? Color.mainDiagonal : Color.boardCell)
+        let stroked = baseRect
+            .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
+        let withHover = stroked
+            .overlay(
+                Group {
+                    if isHover {
+                        Rectangle().fill(Color.hoverHighlight).allowsHitTesting(false)
+                    }
+                }
+            )
+        let withText = withHover
+            .overlay(
+                Group {
+                    if !letter.isEmpty {
+                        Text(letter)
+                            .font(.system(size: cellSize * 0.5, weight: .bold))
+                            .foregroundStyle(Color.letter)
+                    }
+                }
+            )
+        let framed = withText
+            .frame(width: cellSize, height: cellSize)
+            .compositingGroup()
+
+        framed
+            .keyframeAnimator(initialValue: TileBounceState(), trigger: viewModel.winWaveTrigger) { content, state in
+                content.scaleEffect(state.scale)
+            } keyframes: { _ in
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(1.0, duration: delay)
+                    SpringKeyframe(1.2, duration: 0.18, spring: .init(response: 0.36, dampingRatio: 0.62))
+                    SpringKeyframe(1.0,  duration: 0.32, spring: .init(response: 0.40, dampingRatio: 0.72))
+                }
+            }
+    }
+
 
     var body: some View {
         
@@ -87,27 +134,22 @@ fileprivate struct GridLayer: View {
                 HStack(spacing: 0) {
                     ForEach(0..<6, id: \.self) { c in
                         let id = Cell(row: r, col: c)
-                        // Wave step: all cells on the same anti-diagonal share the same step (row+col).
+                        // Precompute simple values to reduce expression complexity
                         let waveStep = r + c
-                        let isBouncing = (viewModel.winBounceIndex == waveStep)
-                        Rectangle()
-                            .fill(mainCells.contains(id) ? Color.mainDiagonal : Color.boardCell)
-                            .overlay(Rectangle().stroke(Color.gridLine, lineWidth: 1))
-                            .overlay {
-                                if hoverCells.contains(id) {
-                                    Rectangle().fill(Color.hoverHighlight).allowsHitTesting(false)
-                                }
-                            }
-                            .overlay {
-                                if !board[r][c].isEmpty {
-                                    Text(board[r][c])
-                                        .font(.system(size: cellSize * 0.5, weight: .bold))
-                                        .foregroundStyle(Color.letter)
-                                }
-                            }
-                            .frame(width: cellSize, height: cellSize)
-                            .scaleEffect(isBouncing ? 1.18 : 1.0)
-                            .animation(.interpolatingSpring(stiffness: 500, damping: 5), value: isBouncing)
+                        let isMain = mainCells.contains(id)
+                        let isHover = hoverCells.contains(id)
+                        let letter = board[r][c]
+
+                        // NEW: baseline + per-step
+                        let baseDelay = 0.02    // 20ms so no tile has 0 delay
+                        let stepDelay = 0.07
+                        let delay = baseDelay + stepDelay * Double(waveStep)
+
+                        makeCell(isMain: isMain,
+                                 isHover: isHover,
+                                 letter: letter,
+                                 cellSize: cellSize,
+                                 delay: delay)
                     }
                 }
             }

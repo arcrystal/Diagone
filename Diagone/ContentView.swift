@@ -1,11 +1,18 @@
 import SwiftUI
 
+private extension UIApplication {
+    func endEditing() {
+        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
 /// Root view composing the game interface. Contains a header with the title,
 /// timer and control buttons, the board itself, the chip selection pane and
 /// optionally the main diagonal input. Relies heavily on `GameViewModel` to
 /// drive state and actions.
 struct ContentView: View {
     @StateObject var viewModel: GameViewModel
+    @Environment(\.scenePhase) private var scenePhase
 
     @MainActor
     init(viewModel: GameViewModel) {
@@ -19,56 +26,108 @@ struct ContentView: View {
     /// animation completes.
     @State private var winHighlightTimer: Timer? = nil
 
+    @State private var showHub: Bool = true
+    
+
+    private enum HubMode { case notStarted, inProgress, completed }
+    private var hubMode: HubMode {
+        if viewModel.isSolved {
+            return .completed
+        } else if viewModel.started {
+            return .inProgress
+        } else {
+            return .notStarted
+        }
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            VStack(spacing: 20) {
-                // Header: title, timer and control buttons
-                header
-                    .padding(.horizontal)
-                // Board
-                BoardView(highlightRow: highlightedRow)
-                    .environmentObject(viewModel)
-                    .padding(.horizontal)
-                    .frame(maxWidth: .infinity)
-                // Chip selection pane
-                chipPane(width: width)
-                    .padding(.horizontal)
-                // Main diagonal input (shown only when all pieces placed)
-                if viewModel.showMainInput {
-                    MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
-                        .environmentObject(viewModel)
-                        .padding(.horizontal)
-                }
-            }
-            .padding(.vertical)
-            .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
-            // Trigger row highlight animation whenever the solved flag becomes true
-            .onChange(of: viewModel.isSolved, initial: false) { oldValue, newValue in
-                if newValue {
-                    startRowHighlightAnimation()
+        Group {
+            if showHub {
+                startHub
+            } else {
+                GeometryReader { geo in
+                    let width = geo.size.width
+                    VStack(spacing: 20) {
+                        // Header: title, timer and control buttons
+                        header
+                            .padding(.horizontal)
+                        // Board
+                        BoardView(highlightRow: highlightedRow)
+                            .environmentObject(viewModel)
+                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity)
+                        // Chip selection pane
+                        chipPane(width: width)
+                            .padding(.horizontal)
+                        // Main diagonal input (shown only when all pieces placed)
+                        if viewModel.showMainInput {
+                            MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
+                                .environmentObject(viewModel)
+                                .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                    .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
+                    // Trigger row highlight animation whenever the solved flag becomes true
+                    .onChange(of: viewModel.isSolved, initial: false) { oldValue, newValue in
+                        if newValue {
+                            startRowHighlightAnimation()
+                        }
+                    }
                 }
             }
         }
         .environmentObject(viewModel)
-        // Overlay confetti when showConfetti is true
-        .overlay(
-            Group {
-                if viewModel.showConfetti {
-                    ConfettiView()
-                        .ignoresSafeArea()
-                        .transition(.opacity)
+        .onAppear {
+            // When app opens, land on hub (Start/Resume/Completed)
+            showHub = true
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background || phase == .inactive {
+                if viewModel.started && !viewModel.isSolved {
+                    viewModel.pause()
+                    showHub = true
                 }
             }
-        )
-        .sheet(isPresented: $viewModel.showWinSheet) {
-            WinSummarySheet(
-                elapsed: viewModel.finishTime,
-                onShare: { /* hook up later if you want */ },
-                onDone: { viewModel.showWinSheet = false }
-            )
-            .presentationDetents([.fraction(0.38), .medium]) // feels NYT-ish
-            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: viewModel.isSolved, initial: false) { _, solved in
+            if solved {
+                UIApplication.shared.endEditing()
+            }
+        }
+        .onChange(of: showHub) { _, isShowing in
+            if !isShowing {
+                // Extra safety: ensure keyboard is dismissed when exiting the hub
+                UIApplication.shared.endEditing()
+                // In case any view auto-focuses on appear, dismiss again on next runloop
+                DispatchQueue.main.async {
+                    UIApplication.shared.endEditing()
+                }
+                if viewModel.finished { viewModel.showMainInput = false }
+            }
+        }
+        .onChange(of: viewModel.finished) { _, didFinish in
+            if didFinish {
+                // Ensure keyboard is dismissed immediately and after any layout updates
+                UIApplication.shared.endEditing()
+                viewModel.showMainInput = false
+                DispatchQueue.main.async { UIApplication.shared.endEditing() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            // Closing/minimizing the app while editing: force dismiss
+            UIApplication.shared.endEditing()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            // Belt-and-suspenders: also dismiss on background
+            UIApplication.shared.endEditing()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            // On resume, don't allow any text field to reclaim focus if the puzzle is finished
+            if viewModel.finished {
+                UIApplication.shared.endEditing()
+                DispatchQueue.main.async { UIApplication.shared.endEditing() }
+            }
         }
     }
 
@@ -79,12 +138,48 @@ struct ContentView: View {
                 .font(.title).bold()
                 .accessibilityAddTraits(.isHeader)
             Spacer()
-            if viewModel.started {
+            if viewModel.started && !viewModel.isSolved {
+                // In-progress: show timer + pause
                 Text(viewModel.elapsedTimeString)
                     .font(.system(.body, design: .monospaced))
                     .accessibilityLabel("Timer: \(viewModel.elapsedTimeString)")
+                Button {
+                    viewModel.pause()
+                    showHub = true
+                } label: {
+                    Image(systemName: "pause.fill")
+                        .font(.headline)
+                        .padding(.leading, 12)
+                        .accessibilityLabel("Pause")
+                }
+                Button {
+                    UIApplication.shared.endEditing()
+                    showHub = true
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.headline)
+                        .padding(.leading, 12)
+                        .accessibilityLabel("Back to hub")
+                }
+            } else if viewModel.started && viewModel.isSolved {
+                // Solved: show elapsed only
+                Text(viewModel.elapsedTimeString)
+                    .font(.system(.body, design: .monospaced))
+                Button {
+                    UIApplication.shared.endEditing()
+                    showHub = true
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.headline)
+                        .padding(.leading, 12)
+                        .accessibilityLabel("Back to hub")
+                }
             } else {
-                Button(action: viewModel.startGame) {
+                // Not started: existing Start button (also shown in hub)
+                Button(action: {
+                    viewModel.startGame()
+                    showHub = false
+                }) {
                     Text("Start")
                         .font(.headline)
                         .padding(.horizontal, 20)
@@ -99,9 +194,93 @@ struct ContentView: View {
             }
         }
     }
-
-    // Determines whether undo is currently possible by inspecting the engine’s history.
     
+
+    // MARK: - Start / Resume / Completed Hub
+    private var startHub: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 20)
+            // Title
+            Text("Diagone")
+                .font(.largeTitle.weight(.bold))
+            switch hubMode {
+            case .notStarted:
+                VStack(spacing: 12) {
+                    Text("Ready for today’s puzzle?")
+                        .font(.title3.weight(.semibold))
+                    Button {
+                        UIApplication.shared.endEditing()
+                        viewModel.startGame()
+                        showHub = false
+                    } label: {
+                        Text("Start")
+                            .font(.headline)
+                            .padding(.horizontal, 28).padding(.vertical, 12)
+                            .background(Capsule().fill(Color.mainDiagonal))
+                            .foregroundStyle(Color.white)
+                    }
+                }
+            case .inProgress:
+                VStack(spacing: 12) {
+                    Text("You’re in the middle of today’s puzzle.")
+                        .font(.title3.weight(.semibold))
+                    Text("Elapsed: \(viewModel.elapsedTimeString)")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    Button {
+                        UIApplication.shared.endEditing()
+                        viewModel.resume()
+                        showHub = false
+                    } label: {
+                        Text("Resume")
+                            .font(.headline)
+                            .padding(.horizontal, 28).padding(.vertical, 12)
+                            .background(Capsule().fill(Color.mainDiagonal))
+                            .foregroundStyle(Color.white)
+                    }
+                }
+            case .completed:
+                VStack(spacing: 12) {
+                    Text("Great job!")
+                        .font(.title3.weight(.semibold))
+                    Text("Time: \(String(format: "%02d:%02d", Int(viewModel.finishTime) / 60, Int(viewModel.finishTime) % 60))")
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                    Text("Check back tomorrow for a new puzzle!")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        Button {
+                            // (future) Show detailed stats when implemented
+                        } label: {
+                            Label("View Stats", systemImage: "chart.bar.fill")
+                                .font(.headline)
+                                .padding(.horizontal, 18).padding(.vertical, 10)
+                                .background(Capsule().fill(Color(UIColor.secondarySystemBackground)))
+                        }
+                        Button {
+                            UIApplication.shared.endEditing()
+                            if viewModel.finished { viewModel.showMainInput = false }
+                            // Ensure no auto-focus steals first responder as the board reappears
+                            DispatchQueue.main.async {
+                                UIApplication.shared.endEditing()
+                            }
+                            showHub = false // return to board
+                        } label: {
+                            Text("Close")
+                                .font(.headline)
+                                .padding(.horizontal, 22).padding(.vertical, 10)
+                                .background(Capsule().fill(Color.primary))
+                                .foregroundStyle(Color(UIColor.systemBackground))
+                        }
+                    }
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
+    }
 
     // MARK: - Chip Pane
     /// Calculates an approximate cell size for chips based on the available width.
@@ -169,7 +348,6 @@ struct ContentView: View {
 
     // MARK: - Row Highlight Animation
     /// Starts the win highlight animation. Sequentially highlights each row of the
-    /// board for a brief moment. Also triggers confetti via the view model.
     private func startRowHighlightAnimation() {
         // Cancel any existing animation
         winHighlightTimer?.invalidate()
@@ -186,64 +364,10 @@ struct ContentView: View {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     highlightedRow = nil
                 }
+                // After the win animation completes, show the completed hub
+                UIApplication.shared.endEditing()
+                showHub = true
             }
         }
-    }
-}
-
-fileprivate struct WinSummarySheet: View {
-    let elapsed: TimeInterval
-    var onShare: () -> Void
-    var onDone:  () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            // Title
-            HStack {
-                Spacer()
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 28, weight: .semibold))
-                Text("Puzzle Solved")
-                    .font(.title2.bold())
-                Spacer()
-            }
-
-            // Big time readout
-            Text(formattedTime(elapsed))
-                .font(.system(size: 40, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-
-            // Action row
-            HStack(spacing: 12) {
-                Button {
-                    onShare()
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(Capsule().fill(Color(UIColor.secondarySystemBackground)))
-                }
-
-                Button {
-                    onDone()
-                } label: {
-                    Text("Done")
-                        .font(.headline)
-                        .padding(.horizontal, 22).padding(.vertical, 10)
-                        .background(Capsule().fill(Color.primary))
-                        .foregroundStyle(Color(UIColor.systemBackground))
-                }
-            }
-            .padding(.top, 6)
-
-            Spacer(minLength: 4)
-        }
-        .padding(.top, 20)
-        .padding(.horizontal, 20)
-    }
-
-    private func formattedTime(_ t: TimeInterval) -> String {
-        let m = Int(t) / 60, s = Int(t) % 60
-        return String(format: "%02d:%02d", m, s)
     }
 }

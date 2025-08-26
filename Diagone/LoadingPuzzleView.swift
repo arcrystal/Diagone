@@ -14,7 +14,7 @@ struct LoadingPuzzleView: View {
                     .font(.system(size: 36, weight: .heavy, design: .serif))
                     .multilineTextAlignment(.center)
 
-                Text("Fill in the blanks to spell a word in each row")
+                Text("Drag and drop diagonals to spell six horizontal words")
                     .font(.title3)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
