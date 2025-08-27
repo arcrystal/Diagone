@@ -253,7 +253,7 @@ struct ContentView: View {
                         Button {
                             // (future) Show detailed stats when implemented
                         } label: {
-                            Text("Play More")
+                            Text("View Stats")
                                 .font(.headline)
                                 .padding(.horizontal, 22).padding(.vertical, 10)
                                 .background(Capsule().fill(Color.primary))
