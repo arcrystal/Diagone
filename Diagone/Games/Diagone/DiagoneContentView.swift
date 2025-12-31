@@ -10,13 +10,15 @@ private extension UIApplication {
 /// timer and control buttons, the board itself, the chip selection pane and
 /// optionally the main diagonal input. Relies heavily on `GameViewModel` to
 /// drive state and actions.
-struct ContentView: View {
+struct DiagoneContentView: View {
     @StateObject var viewModel: GameViewModel
     @Environment(\.scenePhase) private var scenePhase
+    let onBackToHome: () -> Void
 
     @MainActor
-    init(viewModel: GameViewModel) {
+    init(viewModel: GameViewModel, onBackToHome: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.onBackToHome = onBackToHome
     }
     /// Local state tracking which row is currently highlighted during the win
     /// animation. This is advanced sequentially when the puzzle is solved to
@@ -27,7 +29,7 @@ struct ContentView: View {
     @State private var winHighlightTimer: Timer? = nil
 
     @State private var showHub: Bool = true
-    
+
 
     private enum HubMode { case notStarted, inProgress, completed }
     private var hubMode: HubMode {
@@ -194,11 +196,22 @@ struct ContentView: View {
             }
         }
     }
-    
+
 
     // MARK: - Start / Resume / Completed Hub
     private var startHub: some View {
         VStack(spacing: 24) {
+            HStack {
+                Button(action: onBackToHome) {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                        .padding()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
             Spacer(minLength: 20)
             // Title
             Text("Diagone")
@@ -206,7 +219,7 @@ struct ContentView: View {
             switch hubMode {
             case .notStarted:
                 VStack(spacing: 12) {
-                    Text("Ready for today’s puzzle?")
+                    Text("Ready for today's puzzle?")
                         .font(.title3.weight(.semibold))
                     Button {
                         UIApplication.shared.endEditing()
@@ -222,7 +235,7 @@ struct ContentView: View {
                 }
             case .inProgress:
                 VStack(spacing: 12) {
-                    Text("You’re in the middle of today’s puzzle.")
+                    Text("You're in the middle of today's puzzle.")
                         .font(.title3.weight(.semibold))
                     Text("Elapsed: \(viewModel.elapsedTimeString)")
                         .font(.system(.body, design: .monospaced))

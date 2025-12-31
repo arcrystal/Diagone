@@ -65,7 +65,8 @@ public final class GameViewModel: ObservableObject {
 
     private var timerCancellable: AnyCancellable?
     private var startDate: Date?
-    private let storageKey = "diagone_state"
+    private let storageKeyPrefix = "diagone"
+    private var storageKey: String { "\(storageKeyPrefix)_state" }
 
     // MARK: - Lightweight per-day meta persistence (hub state)
     private struct DailyMeta: Codable {
@@ -84,7 +85,7 @@ public final class GameViewModel: ObservableObject {
         fmt.timeZone = TimeZone(secondsFromGMT: 0) // daily boundary stability
         fmt.dateFormat = "yyyy-MM-dd"
         let day = fmt.string(from: Date())
-        return "diagone_meta_\(day)"
+        return "\(storageKeyPrefix)_meta_\(day)"
     }
 
     private func loadDailyMeta() -> DailyMeta? {

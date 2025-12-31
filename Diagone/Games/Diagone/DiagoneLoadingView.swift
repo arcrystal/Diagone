@@ -1,11 +1,23 @@
 import SwiftUI
 
-struct LoadingPuzzleView: View {
+struct DiagoneLoadingView: View {
     let date: Date
     let onStart: () -> Void
+    let onBack: () -> Void
 
     var body: some View {
         VStack(spacing: 28) {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                        .padding()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
             Spacer(minLength: 80)
             GridIcon6x6(size: 84)
 
