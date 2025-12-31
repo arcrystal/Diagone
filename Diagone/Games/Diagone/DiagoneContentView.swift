@@ -262,32 +262,21 @@ struct DiagoneContentView: View {
                     Text("Check back tomorrow for a new puzzle!")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    HStack(spacing: 12) {
-                        Button {
-                            // (future) Show detailed stats when implemented
-                        } label: {
-                            Text("View Stats")
-                                .font(.headline)
-                                .padding(.horizontal, 22).padding(.vertical, 10)
-                                .background(Capsule().fill(Color.primary))
-                                .foregroundStyle(Color(UIColor.systemBackground))
-                        }
-                        Button {
+                    Button {
+                        UIApplication.shared.endEditing()
+                        if viewModel.finished { viewModel.showMainInput = false }
+                        // Ensure no auto-focus steals first responder as the board reappears
+                        DispatchQueue.main.async {
                             UIApplication.shared.endEditing()
-                            if viewModel.finished { viewModel.showMainInput = false }
-                            // Ensure no auto-focus steals first responder as the board reappears
-                            DispatchQueue.main.async {
-                                UIApplication.shared.endEditing()
-                            }
-                            showHub = false // return to board
-                            viewModel.runWinSequence()
-                        } label: {
-                            Text("View Today's Puzzle")
-                                .font(.headline)
-                                .padding(.horizontal, 22).padding(.vertical, 10)
-                                .background(Capsule().fill(Color.primary))
-                                .foregroundStyle(Color(UIColor.systemBackground))
                         }
+                        showHub = false // return to board
+                        viewModel.runWinSequence()
+                    } label: {
+                        Text("View Today's Puzzle")
+                            .font(.headline)
+                            .padding(.horizontal, 22).padding(.vertical, 10)
+                            .background(Capsule().fill(Color.primary))
+                            .foregroundStyle(Color(UIColor.systemBackground))
                     }
                 }
             }
