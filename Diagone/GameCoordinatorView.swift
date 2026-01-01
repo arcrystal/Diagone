@@ -8,8 +8,8 @@ struct GameCoordinatorView: View {
         switch gameType {
         case .diagone:
             DiagoneCoordinatorView(onBackToHome: onBackToHome)
-        case .testGame:
-            TestGameCoordinatorView(onBackToHome: onBackToHome)
+        case .rhymeAGrams:
+            RhymeAGramsCoordinatorView(onBackToHome: onBackToHome)
         }
     }
 }
@@ -41,19 +41,19 @@ private struct DiagoneCoordinatorView: View {
     }
 }
 
-// MARK: - Test Game Coordinator
-private struct TestGameCoordinatorView: View {
+// MARK: - RhymeAGrams Coordinator
+private struct RhymeAGramsCoordinatorView: View {
     enum Route { case loading, playing }
 
     let onBackToHome: () -> Void
     @State private var route: Route = .loading
-    @StateObject private var viewModel = TestGameViewModel()
+    @StateObject private var viewModel = RhymeAGramsViewModel()
 
     var body: some View {
         Group {
             switch route {
             case .loading:
-                TestGameLoadingView(
+                RhymeAGramsLoadingView(
                     date: Date(),
                     onStart: {
                         viewModel.startGame()
@@ -62,7 +62,7 @@ private struct TestGameCoordinatorView: View {
                     onBack: onBackToHome
                 )
             case .playing:
-                TestGameView(viewModel: viewModel, onBackToHome: onBackToHome)
+                RhymeAGramsView(viewModel: viewModel, onBackToHome: onBackToHome)
             }
         }
     }
