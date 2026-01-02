@@ -46,6 +46,9 @@ struct RhymeAGramsView: View {
         .onChange(of: viewModel.finished) { _, didFinish in
             if didFinish {
                 UIApplication.shared.endEditing()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showHub = true
+                }
             }
         }
     }
@@ -55,9 +58,8 @@ struct RhymeAGramsView: View {
         VStack(spacing: 24) {
             HStack {
                 Button(action: onBackToHome) {
-                    Image(systemName: "chevron.left")
-                        .font(.title2)
-                        .foregroundColor(.primary)
+                    Label("Back", systemImage: "chevron.backward")
+                        .font(.headline)
                         .padding()
                 }
                 Spacer()
@@ -136,100 +138,96 @@ struct RhymeAGramsView: View {
 
     // MARK: - Game View
     private var gameView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 0) {
             // Header
             HStack {
-                Text("RhymeAGrams")
-                    .font(.title).bold()
+                Button {
+                    UIApplication.shared.endEditing()
+                    viewModel.pause()
+                    showHub = true
+                } label: {
+                    Label("Back", systemImage: "chevron.backward")
+                        .font(.headline)
+                }
+
                 Spacer()
+
+                Text("RhymeAGrams")
+                    .font(.headline)
+
+                Spacer()
+
                 if viewModel.started && !viewModel.finished {
-                    Text(viewModel.elapsedTimeString)
-                        .font(.system(.body, design: .monospaced))
-                    Button {
-                        viewModel.pause()
-                        showHub = true
-                    } label: {
-                        Image(systemName: "pause.fill")
-                            .font(.headline)
-                            .padding(.leading, 12)
+                    HStack(spacing: 8) {
+                        Text(viewModel.elapsedTimeString)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                        Button {
+                            viewModel.pause()
+                            showHub = true
+                        } label: {
+                            Image(systemName: "pause.fill")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    Button {
-                        UIApplication.shared.endEditing()
-                        showHub = true
-                    } label: {
-                        Label("Back", systemImage: "chevron.backward")
-                            .font(.headline)
-                            .padding(.leading, 12)
-                    }
+                    .frame(width: 75, alignment: .trailing)
                 } else if viewModel.started && viewModel.finished {
                     Text(viewModel.elapsedTimeString)
-                        .font(.system(.body, design: .monospaced))
-                    Button {
-                        UIApplication.shared.endEditing()
-                        showHub = true
-                    } label: {
-                        Label("Back", systemImage: "chevron.backward")
-                            .font(.headline)
-                            .padding(.leading, 12)
-                    }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(width: 75, alignment: .trailing)
                 } else {
-                    Button(action: {
-                        viewModel.startGame()
-                        showHub = false
-                    }) {
-                        Text("Start")
-                            .font(.headline)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color.mainDiagonal)
-                            )
-                            .foregroundColor(.white)
-                    }
+                    Color.clear.frame(width: 75)
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color.boardCell.opacity(0.1))
 
-            Spacer()
+            VStack(spacing: 20) {
+                Spacer()
 
-            // Pyramid
-            PyramidView(letters: viewModel.puzzle.letters)
-                .padding(.horizontal)
+                // Pyramid
+                PyramidView(letters: viewModel.puzzle.letters)
+                    .padding(.horizontal)
 
-            Spacer()
+                Spacer()
 
-            // Answer slots
-            AnswerSlotsView(
-                answers: viewModel.answers,
-                selectedSlot: viewModel.selectedSlot,
-                correctIndices: viewModel.correctAnswerIndices,
-                isSolved: viewModel.finished,
-                bounceIndex: viewModel.winBounceIndex,
-                onSelectSlot: { index in
-                    viewModel.selectSlot(index)
-                }
-            )
-            .padding(.horizontal)
-
-            Spacer()
-
-            // Keyboard
-            if !viewModel.finished {
-                KeyboardView(
-                    onKeyTap: { key in
-                        viewModel.typeKey(key)
-                    },
-                    onDelete: {
-                        viewModel.deleteKey()
+                // Answer slots
+                AnswerSlotsView(
+                    answers: viewModel.answers,
+                    selectedSlot: viewModel.selectedSlot,
+                    correctIndices: viewModel.correctAnswerIndices,
+                    isSolved: viewModel.finished,
+                    bounceIndex: viewModel.winBounceIndex,
+                    onSelectSlot: { index in
+                        viewModel.selectSlot(index)
                     }
                 )
                 .padding(.horizontal)
-            }
 
-            Spacer(minLength: 20)
+                Spacer()
+
+                // Keyboard
+                if !viewModel.finished {
+                    KeyboardView(
+                        onKeyTap: { key in
+                            viewModel.typeKey(key)
+                        },
+                        onDelete: {
+                            viewModel.deleteKey()
+                        }
+                    )
+                    .padding(.horizontal)
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding(.vertical)
         }
-        .padding(.vertical)
         .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
     }
 }

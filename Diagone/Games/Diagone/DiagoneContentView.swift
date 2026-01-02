@@ -49,26 +49,28 @@ struct DiagoneContentView: View {
             } else {
                 GeometryReader { geo in
                     let width = geo.size.width
-                    VStack(spacing: 20) {
+                    VStack(spacing: 0) {
                         // Header: title, timer and control buttons
                         header
-                            .padding(.horizontal)
-                        // Board
-                        BoardView(highlightRow: highlightedRow)
-                            .environmentObject(viewModel)
-                            .padding(.horizontal)
-                            .frame(maxWidth: .infinity)
-                        // Chip selection pane
-                        chipPane(width: width)
-                            .padding(.horizontal)
-                        // Main diagonal input (shown only when all pieces placed)
-                        if viewModel.showMainInput {
-                            MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
+
+                        VStack(spacing: 20) {
+                            // Board
+                            BoardView(highlightRow: highlightedRow)
                                 .environmentObject(viewModel)
                                 .padding(.horizontal)
+                                .frame(maxWidth: .infinity)
+                            // Chip selection pane
+                            chipPane(width: width)
+                                .padding(.horizontal)
+                            // Main diagonal input (shown only when all pieces placed)
+                            if viewModel.showMainInput {
+                                MainDiagonalInputView(input: $viewModel.mainInput, cellSize: computeChipCellSize(totalWidth: width))
+                                    .environmentObject(viewModel)
+                                    .padding(.horizontal)
+                            }
                         }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
                     .background(Color.boardCell.opacity(0.2).ignoresSafeArea())
                     // Trigger row highlight animation whenever the solved flag becomes true
                     .onChange(of: viewModel.isSolved, initial: false) { oldValue, newValue in
@@ -136,65 +138,53 @@ struct DiagoneContentView: View {
     // MARK: - Header
     private var header: some View {
         HStack {
-            Text("Diagone")
-                .font(.title).bold()
-                .accessibilityAddTraits(.isHeader)
+            Button {
+                UIApplication.shared.endEditing()
+                viewModel.pause()
+                showHub = true
+            } label: {
+                Label("Back", systemImage: "chevron.backward")
+                    .font(.headline)
+            }
+
             Spacer()
+
+            Text("Diagone")
+                .font(.headline)
+
+            Spacer()
+
             if viewModel.started && !viewModel.isSolved {
                 // In-progress: show timer + pause
-                Text(viewModel.elapsedTimeString)
-                    .font(.system(.body, design: .monospaced))
-                    .accessibilityLabel("Timer: \(viewModel.elapsedTimeString)")
-                Button {
-                    viewModel.pause()
-                    showHub = true
-                } label: {
-                    Image(systemName: "pause.fill")
-                        .font(.headline)
-                        .padding(.leading, 12)
-                        .accessibilityLabel("Pause")
+                HStack(spacing: 8) {
+                    Text(viewModel.elapsedTimeString)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                    Button {
+                        viewModel.pause()
+                        showHub = true
+                    } label: {
+                        Image(systemName: "pause.fill")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                Button {
-                    UIApplication.shared.endEditing()
-                    showHub = true
-                } label: {
-                    Label("Back", systemImage: "chevron.backward")
-                        .font(.headline)
-                        .padding(.leading, 12)
-                        .accessibilityLabel("Back to hub")
-                }
+                .frame(width: 75, alignment: .trailing)
             } else if viewModel.started && viewModel.isSolved {
                 // Solved: show elapsed only
                 Text(viewModel.elapsedTimeString)
-                    .font(.system(.body, design: .monospaced))
-                Button {
-                    UIApplication.shared.endEditing()
-                    showHub = true
-                } label: {
-                    Label("Back", systemImage: "chevron.backward")
-                        .font(.headline)
-                        .padding(.leading, 12)
-                        .accessibilityLabel("Back to hub")
-                }
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 75, alignment: .trailing)
             } else {
-                // Not started: existing Start button (also shown in hub)
-                Button(action: {
-                    viewModel.startGame()
-                    showHub = false
-                }) {
-                    Text("Start")
-                        .font(.headline)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.mainDiagonal)
-                        )
-                        .foregroundColor(.white)
-                }
-                .accessibilityLabel("Start game")
+                Color.clear.frame(width: 75)
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(Color.boardCell.opacity(0.1))
     }
 
 
@@ -203,9 +193,8 @@ struct DiagoneContentView: View {
         VStack(spacing: 24) {
             HStack {
                 Button(action: onBackToHome) {
-                    Image(systemName: "chevron.left")
-                        .font(.title2)
-                        .foregroundColor(.primary)
+                    Label("Back", systemImage: "chevron.backward")
+                        .font(.headline)
                         .padding()
                 }
                 Spacer()

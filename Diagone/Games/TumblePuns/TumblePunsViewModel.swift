@@ -13,6 +13,7 @@ public final class TumblePunsViewModel: ObservableObject {
     @Published public var elapsedTime: TimeInterval = 0
     @Published public var finishTime: TimeInterval = 0
     @Published public var winBounceIndex: Int? = nil
+    @Published public var finalAnswerBounceIndex: Int? = nil
 
     private(set) var engine: TumblePunsEngine
     private var timerCancellable: AnyCancellable?
@@ -141,15 +142,29 @@ public final class TumblePunsViewModel: ObservableObject {
 
     public func runWinSequence() {
         Task {
+            // Bounce the 4 word answer boxes
             for i in 0..<4 {
-                try? await Task.sleep(nanoseconds: 350_000_000)
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 withAnimation(.easeInOut(duration: 0.3)) {
                     winBounceIndex = i
                 }
             }
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: 200_000_000)
             withAnimation(.easeInOut(duration: 0.3)) {
                 winBounceIndex = nil
+            }
+
+            // Bounce the final answer letters one by one
+            let letterCount = engine.puzzle.answerPattern.filter { $0 == "_" }.count
+            for i in 0..<letterCount {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    finalAnswerBounceIndex = i
+                }
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                finalAnswerBounceIndex = nil
             }
         }
     }

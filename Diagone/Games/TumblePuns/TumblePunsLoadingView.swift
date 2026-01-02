@@ -9,9 +9,8 @@ struct TumblePunsLoadingView: View {
         VStack(spacing: 28) {
             HStack {
                 Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.title2)
-                        .foregroundColor(.primary)
+                    Label("Back", systemImage: "chevron.backward")
+                        .font(.headline)
                         .padding()
                 }
                 Spacer()

@@ -2,29 +2,49 @@ import SwiftUI
 
 struct TumblePunsView: View {
     @ObservedObject var viewModel: TumblePunsViewModel
+    @Environment(\.scenePhase) private var scenePhase
     let onBackToHome: () -> Void
+
+    @State private var showHub: Bool = true
+
+    private enum HubMode { case notStarted, inProgress, completed }
+    private var hubMode: HubMode {
+        if viewModel.finished {
+            return .completed
+        } else if viewModel.started {
+            return .inProgress
+        } else {
+            return .notStarted
+        }
+    }
 
     var body: some View {
         ZStack {
-            Color(red: 0.97, green: 0.97, blue: 0.95)
+            Color.boardCell.opacity(0.2)
                 .ignoresSafeArea()
 
-            if !viewModel.started {
+            if showHub {
                 startHub
-            } else if viewModel.finished {
-                completedHub
             } else {
                 gameView
             }
         }
         .onAppear {
-            if viewModel.started && !viewModel.finished {
-                viewModel.resume()
+            showHub = true
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background || phase == .inactive {
+                if viewModel.started && !viewModel.finished {
+                    viewModel.pause()
+                    showHub = true
+                }
             }
         }
-        .onDisappear {
-            if viewModel.started && !viewModel.finished {
-                viewModel.pause()
+        .onChange(of: viewModel.finished) { _, finished in
+            if finished {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showHub = true
+                }
             }
         }
     }
@@ -32,11 +52,21 @@ struct TumblePunsView: View {
     // MARK: - Start Hub
     private var startHub: some View {
         VStack(spacing: 24) {
-            Spacer()
+            HStack {
+                Button(action: onBackToHome) {
+                    Label("Back", systemImage: "chevron.backward")
+                        .font(.headline)
+                        .padding()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
+            Spacer(minLength: 20)
 
             Image(systemName: "circle.grid.3x3.fill")
                 .font(.system(size: 80))
-                .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+                .foregroundColor(.mainDiagonal)
 
             Text("TumblePuns")
                 .font(.largeTitle)
@@ -50,50 +80,76 @@ struct TumblePunsView: View {
 
             Spacer()
 
-            Button(action: { viewModel.startGame() }) {
-                Text("Play")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(red: 0.2, green: 0.3, blue: 0.5))
-                    .cornerRadius(12)
+            switch hubMode {
+            case .notStarted:
+                Button(action: {
+                    viewModel.startGame()
+                    showHub = false
+                }) {
+                    Text("Play")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.mainDiagonal)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+
+            case .inProgress:
+                VStack(spacing: 16) {
+                    Button(action: {
+                        viewModel.resume()
+                        showHub = false
+                    }) {
+                        Text("Resume")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.mainDiagonal)
+                            .cornerRadius(12)
+                    }
+
+                    Button(action: onBackToHome) {
+                        Text("Back to Home")
+                            .font(.headline)
+                            .foregroundColor(.mainDiagonal)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.mainDiagonal, lineWidth: 2)
+                            )
+                    }
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+
+            case .completed:
+                VStack(spacing: 12) {
+                    Text("Great job!")
+                        .font(.title3.weight(.semibold))
+                    Text("Time: \(String(format: "%02d:%02d", Int(viewModel.finishTime) / 60, Int(viewModel.finishTime) % 60))")
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                    Text("Check back tomorrow for a new puzzle!")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        showHub = false
+                        viewModel.runWinSequence()
+                    } label: {
+                        Text("View Today's Puzzle")
+                            .font(.headline)
+                            .padding(.horizontal, 22).padding(.vertical, 10)
+                            .background(Capsule().fill(Color.primary))
+                            .foregroundStyle(Color(UIColor.systemBackground))
+                    }
+                }
             }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 40)
-        }
-    }
-
-    // MARK: - Completed Hub
-    private var completedHub: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-
-            Text("Puzzle Complete!")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Time: \(viewModel.elapsedTimeString)")
-                .font(.headline)
-                .foregroundColor(.secondary)
-
-            Spacer()
-
-            Button(action: onBackToHome) {
-                Text("Back to Home")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(red: 0.2, green: 0.3, blue: 0.5))
-                    .cornerRadius(12)
-            }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 40)
         }
     }
 
@@ -117,10 +173,12 @@ struct TumblePunsView: View {
     // MARK: - Header
     private var headerView: some View {
         HStack {
-            Button(action: onBackToHome) {
-                Image(systemName: "chevron.left")
-                    .font(.title2)
-                    .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+            Button(action: {
+                viewModel.pause()
+                showHub = true
+            }) {
+                Label("Back", systemImage: "chevron.backward")
+                    .font(.headline)
             }
 
             Spacer()
@@ -130,29 +188,50 @@ struct TumblePunsView: View {
 
             Spacer()
 
-            Text(viewModel.elapsedTimeString)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .frame(width: 60, alignment: .trailing)
+            if viewModel.started && !viewModel.finished {
+                HStack(spacing: 8) {
+                    Text(viewModel.elapsedTimeString)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                    Button {
+                        viewModel.pause()
+                        showHub = true
+                    } label: {
+                        Image(systemName: "pause.fill")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(width: 75, alignment: .trailing)
+            } else if viewModel.started && viewModel.finished {
+                Text(viewModel.elapsedTimeString)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 75, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: 75)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(Color(red: 0.97, green: 0.97, blue: 0.95))
+        .background(Color.boardCell.opacity(0.1))
     }
 
     // MARK: - Words Grid
     private var wordsGrid: some View {
-        VStack(spacing: 20) {
-            HStack(spacing: 20) {
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
                 wordSection(index: 0)
                 wordSection(index: 1)
             }
-            HStack(spacing: 20) {
+            HStack(spacing: 16) {
                 wordSection(index: 2)
                 wordSection(index: 3)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private func wordSection(index: Int) -> some View {
@@ -168,18 +247,18 @@ struct TumblePunsView: View {
                     let radius: CGFloat = 30
 
                     Text(String(letter))
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                        .frame(width: 20, height: 20)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                        .frame(width: 28, height: 28)
                         .background(
                             Circle()
-                                .fill(Color.white)
+                                .fill(Color.boardCell)
                                 .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
                         )
                         .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
                 }
             }
-            .frame(width: 75, height: 75)
+            .frame(width: 85, height: 85)
 
             // Answer boxes
             HStack(spacing: 2) {
@@ -190,21 +269,21 @@ struct TumblePunsView: View {
                     let shouldBounce = viewModel.winBounceIndex == index
 
                     Text(displayLetter)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(isCorrect ? Color.green.opacity(0.8) : Color(red: 0.1, green: 0.2, blue: 0.4))
-                        .frame(width: 20, height: 20)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(isCorrect ? .green : .primary)
+                        .frame(width: 22, height: 28)
                         .background(
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(isShaded ? Color(red: 0.95, green: 0.85, blue: 0.6) : Color.white)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(isShaded ? Color.mainDiagonal.opacity(0.3) : Color.boardCell)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 4)
                                 .strokeBorder(
-                                    isCorrect ? Color.green.opacity(0.8) : (isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.4)),
-                                    lineWidth: isSelected ? 1.5 : 1
+                                    isCorrect ? Color.green : (isSelected ? Color.mainDiagonal : Color.gray.opacity(0.4)),
+                                    lineWidth: isSelected ? 2 : 1
                                 )
                         )
-                        .offset(y: shouldBounce ? -6 : 0)
+                        .offset(y: shouldBounce ? -8 : 0)
                         .animation(.easeInOut(duration: 0.3), value: shouldBounce)
                 }
             }
@@ -252,33 +331,36 @@ struct TumblePunsView: View {
 
             // Answer input boxes with dashes
             let pattern = viewModel.puzzle.answerPattern
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 ForEach(Array(pattern.enumerated()), id: \.offset) { offset, char in
                     if char == "_" {
                         let letterIndex = pattern.prefix(offset + 1).filter { $0 == "_" }.count - 1
                         let userAnswer = viewModel.finalAnswer
                         let displayLetter = letterIndex < userAnswer.count ? String(userAnswer[userAnswer.index(userAnswer.startIndex, offsetBy: letterIndex)]) : ""
+                        let shouldBounce = viewModel.finalAnswerBounceIndex == letterIndex
 
                         Text(displayLetter)
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                            .frame(width: 24, height: 30)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(width: 34, height: 42)
                             .background(
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color(red: 0.95, green: 0.85, blue: 0.6))
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(Color.mainDiagonal.opacity(0.3))
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 3)
+                                RoundedRectangle(cornerRadius: 5)
                                     .strokeBorder(
-                                        viewModel.isFinalAnswerSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.4),
-                                        lineWidth: viewModel.isFinalAnswerSelected ? 1.5 : 1
+                                        viewModel.isFinalAnswerSelected ? Color.mainDiagonal : Color.gray.opacity(0.4),
+                                        lineWidth: viewModel.isFinalAnswerSelected ? 2 : 1
                                     )
                             )
+                            .scaleEffect(shouldBounce ? 1.15 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: shouldBounce)
                     } else {
                         Text(String(char))
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.primary)
-                            .frame(width: 8, height: 30)
+                            .frame(width: 12, height: 42)
                     }
                 }
             }
@@ -294,7 +376,7 @@ struct TumblePunsView: View {
 
     // MARK: - Keyboard
     private var keyboardView: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 4) {
             let rows = [
                 ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
                 ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
@@ -304,54 +386,56 @@ struct TumblePunsView: View {
             ForEach(0..<rows.count, id: \.self) { rowIndex in
                 HStack(spacing: 3) {
                     if rowIndex == 1 {
-                        Spacer().frame(width: 12)
+                        Spacer().frame(width: 14)
                     } else if rowIndex == 2 {
-                        Spacer().frame(width: 24)
+                        Spacer().frame(width: 28)
                     }
 
                     ForEach(rows[rowIndex], id: \.self) { key in
                         Text(key)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 34)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 32, height: 38)
                             .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.white)
-                                    .shadow(color: .black.opacity(0.06), radius: 1, x: 0, y: 1)
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(Color(UIColor.systemGray4))
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                viewModel.typeKey(key)
+                                if !viewModel.finished {
+                                    viewModel.typeKey(key)
+                                }
                             }
                     }
 
                     if rowIndex == 2 {
                         Image(systemName: "delete.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                            .frame(width: 44, height: 34)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 42, height: 38)
                             .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.white)
-                                    .shadow(color: .black.opacity(0.06), radius: 1, x: 0, y: 1)
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(Color(UIColor.systemGray4))
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                viewModel.deleteKey()
+                                if !viewModel.finished {
+                                    viewModel.deleteKey()
+                                }
                             }
                     }
 
                     if rowIndex == 1 {
-                        Spacer().frame(width: 12)
+                        Spacer().frame(width: 14)
                     } else if rowIndex == 2 {
-                        Spacer().frame(width: 24)
+                        Spacer().frame(width: 28)
                     }
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 12)
+        .padding(.horizontal, 6)
+        .padding(.top, 8)
         .padding(.bottom, 8)
+        .opacity(viewModel.finished ? 0.5 : 1.0)
     }
 }

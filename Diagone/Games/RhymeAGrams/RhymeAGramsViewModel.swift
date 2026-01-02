@@ -130,7 +130,7 @@ public final class RhymeAGramsViewModel: ObservableObject {
     public func runWinSequence() {
         Task {
             for i in 0..<4 {
-                try? await Task.sleep(nanoseconds: 350_000_000)
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 withAnimation(.easeInOut(duration: 0.3)) {
                     winBounceIndex = i
                 }
