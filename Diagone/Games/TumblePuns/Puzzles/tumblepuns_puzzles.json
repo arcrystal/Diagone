@@ -1,0 +1,29 @@
+{
+  "01/01/2026": {
+    "words": [
+      {
+        "scrambled": "DYTIZ",
+        "solution": "DITZY",
+        "shadedIndices": [2]
+      },
+      {
+        "scrambled": "DWONWI",
+        "solution": "WINDOW",
+        "shadedIndices": [4, 5]
+      },
+      {
+        "scrambled": "XEPPELR",
+        "solution": "PERPLEX",
+        "shadedIndices": [2, 5]
+      },
+      {
+        "scrambled": "AJIMYTOR",
+        "solution": "MAJORITY",
+        "shadedIndices": [1, 5, 7]
+      }
+    ],
+    "definition": "A sundial",
+    "answerPattern": "___-_____",
+    "answer": "OLD-TIMER"
+  }
+}

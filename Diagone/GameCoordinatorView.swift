@@ -10,6 +10,8 @@ struct GameCoordinatorView: View {
             DiagoneCoordinatorView(onBackToHome: onBackToHome)
         case .rhymeAGrams:
             RhymeAGramsCoordinatorView(onBackToHome: onBackToHome)
+        case .tumblePuns:
+            TumblePunsCoordinatorView(onBackToHome: onBackToHome)
         }
     }
 }
@@ -63,6 +65,33 @@ private struct RhymeAGramsCoordinatorView: View {
                 )
             case .playing:
                 RhymeAGramsView(viewModel: viewModel, onBackToHome: onBackToHome)
+            }
+        }
+    }
+}
+
+// MARK: - TumblePuns Coordinator
+private struct TumblePunsCoordinatorView: View {
+    enum Route { case loading, playing }
+
+    let onBackToHome: () -> Void
+    @State private var route: Route = .loading
+    @StateObject private var viewModel = TumblePunsViewModel()
+
+    var body: some View {
+        Group {
+            switch route {
+            case .loading:
+                TumblePunsLoadingView(
+                    date: Date(),
+                    onStart: {
+                        viewModel.startGame()
+                        route = .playing
+                    },
+                    onBack: onBackToHome
+                )
+            case .playing:
+                TumblePunsView(viewModel: viewModel, onBackToHome: onBackToHome)
             }
         }
     }
