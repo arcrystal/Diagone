@@ -66,3 +66,4 @@ playground.xcworkspace
 # ---- Misc editors ----
 *.orig
 *.tmp
+*.json
