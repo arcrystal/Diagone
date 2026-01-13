@@ -33,7 +33,14 @@ struct RhymeAGramsView: View {
             }
         }
         .onAppear {
-            showHub = true
+            if !viewModel.started {
+                // Coming from loading screen - start the game and go directly to game
+                viewModel.startGame()
+                showHub = false
+            } else {
+                // Returning to paused or completed game - show hub
+                showHub = true
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {
@@ -68,45 +75,78 @@ struct RhymeAGramsView: View {
 
             Spacer(minLength: 20)
 
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.mainDiagonal)
+
             Text("RhymeAGrams")
-                .font(.largeTitle.weight(.bold))
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Find four 4-letter words from a pyramid of letters")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Spacer()
 
             switch hubMode {
             case .notStarted:
-                VStack(spacing: 12) {
-                    Text("Ready for today's puzzle?")
-                        .font(.title3.weight(.semibold))
-                    Button {
-                        UIApplication.shared.endEditing()
-                        viewModel.startGame()
-                        showHub = false
-                    } label: {
-                        Text("Start")
-                            .font(.headline)
-                            .padding(.horizontal, 28).padding(.vertical, 12)
-                            .background(Capsule().fill(Color.mainDiagonal))
-                            .foregroundStyle(Color.white)
-                    }
+                Button(action: {
+                    UIApplication.shared.endEditing()
+                    viewModel.startGame()
+                    showHub = false
+                }) {
+                    Text("Play")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.mainDiagonal)
+                        .cornerRadius(12)
                 }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+
             case .inProgress:
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     Text("You're in the middle of today's puzzle.")
                         .font(.title3.weight(.semibold))
                     Text("Elapsed: \(viewModel.elapsedTimeString)")
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(.secondary)
-                    Button {
+
+                    Button(action: {
                         UIApplication.shared.endEditing()
                         viewModel.resume()
                         showHub = false
-                    } label: {
+                    }) {
                         Text("Resume")
                             .font(.headline)
-                            .padding(.horizontal, 28).padding(.vertical, 12)
-                            .background(Capsule().fill(Color.mainDiagonal))
-                            .foregroundStyle(Color.white)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.mainDiagonal)
+                            .cornerRadius(12)
+                    }
+
+                    Button(action: onBackToHome) {
+                        Text("Back to Home")
+                            .font(.headline)
+                            .foregroundColor(.mainDiagonal)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.mainDiagonal, lineWidth: 2)
+                            )
                     }
                 }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+
             case .completed:
                 VStack(spacing: 12) {
                     Text("Great job!")
@@ -130,7 +170,6 @@ struct RhymeAGramsView: View {
                     }
                 }
             }
-            Spacer()
         }
         .padding(.horizontal, 24)
         .background(Color.boardCell.opacity(0.2).ignoresSafeArea())

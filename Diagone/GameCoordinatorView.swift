@@ -31,13 +31,18 @@ private struct DiagoneCoordinatorView: View {
                 DiagoneLoadingView(
                     date: Date(),
                     onStart: {
-                        viewModel.startGame()
                         route = .playing
                     },
                     onBack: onBackToHome
                 )
             case .playing:
                 DiagoneContentView(viewModel: viewModel, onBackToHome: onBackToHome)
+            }
+        }
+        .onAppear {
+            // Skip loading screen if game is already in progress or completed
+            if viewModel.started {
+                route = .playing
             }
         }
     }
@@ -58,13 +63,18 @@ private struct RhymeAGramsCoordinatorView: View {
                 RhymeAGramsLoadingView(
                     date: Date(),
                     onStart: {
-                        viewModel.startGame()
                         route = .playing
                     },
                     onBack: onBackToHome
                 )
             case .playing:
                 RhymeAGramsView(viewModel: viewModel, onBackToHome: onBackToHome)
+            }
+        }
+        .onAppear {
+            // Skip loading screen if game is already in progress or completed
+            if viewModel.started {
+                route = .playing
             }
         }
     }
@@ -85,13 +95,18 @@ private struct TumblePunsCoordinatorView: View {
                 TumblePunsLoadingView(
                     date: Date(),
                     onStart: {
-                        viewModel.startGame()
                         route = .playing
                     },
                     onBack: onBackToHome
                 )
             case .playing:
                 TumblePunsView(viewModel: viewModel, onBackToHome: onBackToHome)
+            }
+        }
+        .onAppear {
+            // Skip loading screen if game is already in progress or completed
+            if viewModel.started {
+                route = .playing
             }
         }
     }

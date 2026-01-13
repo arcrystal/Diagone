@@ -30,7 +30,14 @@ struct TumblePunsView: View {
             }
         }
         .onAppear {
-            showHub = true
+            if !viewModel.started {
+                // Coming from loading screen - start the game and go directly to game
+                viewModel.startGame()
+                showHub = false
+            } else {
+                // Returning to paused or completed game - show hub
+                showHub = true
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {
@@ -99,6 +106,12 @@ struct TumblePunsView: View {
 
             case .inProgress:
                 VStack(spacing: 16) {
+                    Text("You're in the middle of today's puzzle.")
+                        .font(.title3.weight(.semibold))
+                    Text("Elapsed: \(viewModel.elapsedTimeString)")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+
                     Button(action: {
                         viewModel.resume()
                         showHub = false
