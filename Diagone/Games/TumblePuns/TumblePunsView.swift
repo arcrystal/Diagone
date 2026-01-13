@@ -58,59 +58,55 @@ struct TumblePunsView: View {
 
     // MARK: - Start Hub
     private var startHub: some View {
-        VStack(spacing: 24) {
-            HStack {
-                Button(action: onBackToHome) {
-                    Label("Back", systemImage: "chevron.backward")
-                        .font(.headline)
-                        .padding()
-                }
+        VStack(spacing: 0) {
+        
+            VStack(spacing: 16) {
                 Spacer()
+                Image(systemName: "circle.grid.3x3.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.mainDiagonal)
+
+                Text("TumblePuns")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("Unscramble words and solve the punny definition")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 40)
             }
-            .padding(.horizontal, 20)
-
-            Spacer(minLength: 20)
-
-            Image(systemName: "circle.grid.3x3.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.mainDiagonal)
-
-            Text("TumblePuns")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Unscramble words and solve the punny definition")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
 
             Spacer()
 
-            switch hubMode {
-            case .notStarted:
-                Button(action: {
-                    viewModel.startGame()
-                    showHub = false
-                }) {
-                    Text("Play")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.mainDiagonal)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
+            // Bottom content - state-specific
+            VStack(spacing: 16) {
+                switch hubMode {
+                case .notStarted:
+                    Button(action: {
+                        viewModel.startGame()
+                        showHub = false
+                    }) {
+                        Text("Play")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.mainDiagonal)
+                            .cornerRadius(12)
+                    }
 
-            case .inProgress:
-                VStack(spacing: 16) {
+                case .inProgress:
                     Text("You're in the middle of today's puzzle.")
-                        .font(.title3.weight(.semibold))
-                    Text("Elapsed: \(viewModel.elapsedTimeString)")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(viewModel.elapsedTimeString)
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
 
                     Button(action: {
                         viewModel.resume()
@@ -137,20 +133,21 @@ struct TumblePunsView: View {
                                     .stroke(Color.mainDiagonal, lineWidth: 2)
                             )
                     }
-                }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
 
-            case .completed:
-                VStack(spacing: 12) {
+                case .completed:
                     Text("Great job!")
                         .font(.title3.weight(.semibold))
+
                     Text("Time: \(String(format: "%02d:%02d", Int(viewModel.finishTime) / 60, Int(viewModel.finishTime) % 60))")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                         .monospacedDigit()
+
                     Text("Check back tomorrow for a new puzzle!")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Button {
                         showHub = false
                         viewModel.runWinSequence()
@@ -163,7 +160,10 @@ struct TumblePunsView: View {
                     }
                 }
             }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 40)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: - Game View
