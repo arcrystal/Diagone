@@ -26,7 +26,7 @@ enum GameType: String, Identifiable, CaseIterable {
     var description: String {
         switch self {
         case .diagone: return "Drag and drop diagonals to spell six horizontal words"
-        case .rhymeAGrams: return "Find four 4-letter words from a pyramid of letters"
+        case .rhymeAGrams: return "Find four rhyming 4-letter words from a pyramid of letters"
         case .tumblePuns: return "Unscramble words and solve the punny definition"
         }
     }

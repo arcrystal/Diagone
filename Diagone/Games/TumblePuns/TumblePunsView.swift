@@ -7,6 +7,10 @@ struct TumblePunsView: View {
 
     @State private var showHub: Bool = true
 
+    /// For each word (4 total), stores the display position for each letter index.
+    /// letterPositions[wordIndex][letterIndex] = position on circle (0..<letterCount)
+    @State private var letterPositions: [[Int]] = []
+
     private enum HubMode { case notStarted, inProgress, completed }
     private var hubMode: HubMode {
         if viewModel.finished {
@@ -15,6 +19,22 @@ struct TumblePunsView: View {
             return .inProgress
         } else {
             return .notStarted
+        }
+    }
+
+    /// Initialize letter positions with random shuffles for each word
+    private func initializeLetterPositions() {
+        guard letterPositions.isEmpty else { return }
+        letterPositions = viewModel.puzzle.words.map { word in
+            Array(0..<word.scrambled.count).shuffled()
+        }
+    }
+
+    /// Shuffle the letters for a specific word with animation
+    private func shuffleWord(_ wordIndex: Int) {
+        guard wordIndex < letterPositions.count else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            letterPositions[wordIndex] = letterPositions[wordIndex].shuffled()
         }
     }
 
@@ -30,6 +50,7 @@ struct TumblePunsView: View {
             }
         }
         .onAppear {
+            initializeLetterPositions()
             if !viewModel.started {
                 // Coming from loading screen - start the game and go directly to game
                 viewModel.startGame()
@@ -251,12 +272,16 @@ struct TumblePunsView: View {
         let word = viewModel.puzzle.words[index]
         let isCorrect = viewModel.correctWordIndices.contains(index)
         let isSelected = viewModel.selectedWordIndex == index
+        let letterCount = word.scrambled.count
+        let positions = index < letterPositions.count ? letterPositions[index] : Array(0..<letterCount)
 
         return VStack(spacing: 10) {
-            // Scrambled letters arranged in a circle
+            // Scrambled letters arranged in a circle with shuffle button
             ZStack {
-                ForEach(Array(word.scrambled.enumerated()), id: \.offset) { offset, letter in
-                    let angle = Angle(degrees: Double(offset) * (360.0 / Double(word.scrambled.count)) - 90)
+                // Letter circles
+                ForEach(Array(word.scrambled.enumerated()), id: \.offset) { letterIdx, letter in
+                    let position = letterIdx < positions.count ? positions[letterIdx] : letterIdx
+                    let angle = Angle(degrees: Double(position) * (360.0 / Double(letterCount)) - 90)
                     let radius: CGFloat = 30
 
                     Text(String(letter))
@@ -269,6 +294,18 @@ struct TumblePunsView: View {
                                 .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
                         )
                         .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
+                }
+
+                // Shuffle button in center
+                if !isCorrect && !viewModel.finished {
+                    Button {
+                        shuffleWord(index)
+                    } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .frame(width: 85, height: 85)
