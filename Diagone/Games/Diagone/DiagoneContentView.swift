@@ -288,7 +288,7 @@ struct DiagoneContentView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Button {
+                    Button(action: {
                         UIApplication.shared.endEditing()
                         if viewModel.finished { viewModel.showMainInput = false }
                         DispatchQueue.main.async {
@@ -296,12 +296,27 @@ struct DiagoneContentView: View {
                         }
                         showHub = false
                         viewModel.runWinSequence()
-                    } label: {
+                    }) {
                         Text("View Today's Puzzle")
                             .font(.headline)
-                            .padding(.horizontal, 22).padding(.vertical, 10)
-                            .background(Capsule().fill(Color.primary))
-                            .foregroundStyle(Color(UIColor.systemBackground))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.mainDiagonal)
+                            .cornerRadius(12)
+                    }
+
+                    Button(action: onBackToHome) {
+                        Text("Back to Home")
+                            .font(.headline)
+                            .foregroundColor(.mainDiagonal)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.mainDiagonal, lineWidth: 2)
+                            )
                     }
                 }
             }
