@@ -1,50 +1,546 @@
 {
     "01/16/2026": [
-        "PHRASE",
-        "RUBBLE",
-        "FABLED",
-        "WAYLAY",
-        "REGAIN",
-        "MANIAC"
+        "SPORTS",
+        "ATTEND",
+        "CARING",
+        "MEDIAN",
+        "TRICKY",
+        "BOTTLE"
     ],
-    "01/14/2026": [
-        "BANNER",
-        "ARCADE",
-        "RAISIN",
-        "BLADED",
-        "SPRIGS",
-        "PEOPLE"
+    "02/02/2026": [
+        "VACANT",
+        "YELLOW",
+        "PILLOW",
+        "CARVED",
+        "LISTEN",
+        "BRIGHT"
     ],
-    "01/02/2026": [
-        "GATHER",
-        "ELBOWS",
+    "02/03/2026": [
+        "GLAMOR",
+        "BACKUP",
+        "HEDGES",
+        "LARGER",
+        "STREET",
+        "FERRET"
+    ],
+    "02/04/2026": [
+        "HEALTH",
+        "DUFFEL",
+        "RUBBER",
         "CIRCLE",
-        "POCKET",
-        "BENDER",
-        "MARKET"
+        "ENDEAR",
+        "SHRIMP"
     ],
-    "01/03/2026": [
-        "PLANET",
-        "BEACON",
-        "FIGHTY",
-        "PRISON",
+    "02/05/2026": [
+        "POETRY",
+        "TRAVEL",
+        "FROTHY",
+        "COUPLE",
+        "SHOVES",
+        "GOPHER"
+    ],
+    "02/06/2026": [
+        "KENNEL",
+        "ANCHOR",
+        "WRITER",
+        "JUGGLE",
+        "CATCHY",
+        "THRIFT"
+    ],
+    "02/07/2026": [
+        "MILDEW",
+        "HUMBLE",
+        "MISLED",
+        "TOUCHY",
+        "COBALT",
+        "INVITE"
+    ],
+    "02/08/2026": [
+        "DABBLE",
+        "CRADLE",
+        "TRAGIC",
+        "BEAGLE",
+        "METEOR",
+        "LEGION"
+    ],
+    "02/09/2026": [
+        "AFRAID",
+        "OPAQUE",
+        "HIPPOS",
+        "DESERT",
+        "SQUEAK",
+        "UNFAIR"
+    ],
+    "02/10/2026": [
+        "UPHILL",
+        "IMPURE",
+        "HAPPEN",
+        "EXPIRE",
+        "CHERRY",
+        "BRIDGE"
+    ],
+    "02/11/2026": [
+        "WISDOM",
+        "FILTHY",
+        "TINKER",
+        "SENTRY",
+        "BARKED",
+        "FATHER"
+    ],
+    "02/12/2026": [
+        "GRAPHS",
+        "PALACE",
+        "BALLOT",
+        "TOILET",
+        "RANSOM",
+        "STRAIN"
+    ],
+    "02/13/2026": [
+        "OBTUSE",
+        "TRENCH",
+        "PRANCE",
+        "AGENCY",
+        "DREDGE",
+        "EQUATE"
+    ],
+    "02/14/2026": [
+        "YAWNED",
+        "VOYAGE",
+        "ZIGZAG",
+        "THRUST",
+        "ENDURE",
+        "TRUEST"
+    ],
+    "02/15/2026": [
+        "ZODIAC",
+        "GINGER",
+        "TOPPLE",
+        "WEAPON",
+        "EMBLEM",
+        "YELLER"
+    ],
+    "02/16/2026": [
+        "KIMONO",
+        "HEAVEN",
+        "OPENER",
+        "BOUNCE",
+        "REVOLT",
+        "SKINNY"
+    ],
+    "02/17/2026": [
+        "AERIAL",
+        "GNAWED",
+        "LAYOFF",
+        "IMPOSE",
+        "CASINO",
+        "WADDLE"
+    ],
+    "02/18/2026": [
+        "ANSWER",
+        "SNAPPY",
+        "CHISEL",
+        "CHUMMY",
+        "THROAT",
+        "SCHOOL"
+    ],
+    "02/19/2026": [
+        "EATERY",
+        "GLANCE",
+        "FRINGE",
+        "JINXES",
+        "OBTAIN",
+        "DOLLAR"
+    ],
+    "02/20/2026": [
+        "WHITEN",
+        "VALLEY",
+        "UPLOAD",
+        "ASTRAY",
+        "CACTUS",
+        "WOLVES"
+    ],
+    "02/21/2026": [
+        "DRIVEN",
+        "LIMBER",
+        "PIGLET",
+        "SPLEEN",
+        "AMBUSH",
+        "BALLET"
+    ],
+    "02/22/2026": [
+        "LIQUOR",
+        "MEADOW",
+        "INTACT",
+        "RATTLE",
+        "CANCEL",
+        "DEVOUR"
+    ],
+    "02/23/2026": [
+        "EXCISE",
+        "KNEADS",
+        "PREFER",
+        "QUORUM",
+        "DESIGN",
+        "FLABBY"
+    ],
+    "02/24/2026": [
+        "GUILTY",
+        "JACKAL",
+        "NARROW",
+        "BLEARY",
+        "THOUGH",
+        "ZOMBIE"
+    ],
+    "02/25/2026": [
+        "QUARTZ",
+        "PUTRID",
+        "SPIRIT",
+        "HONCHO",
+        "TAUGHT",
+        "ELAPSE"
+    ],
+    "02/26/2026": [
+        "CRISPY",
+        "FRIGID",
+        "USABLE",
+        "STINKY",
+        "EUREKA",
+        "BAKERY"
+    ],
+    "02/27/2026": [
+        "NEURON",
+        "KITTEN",
+        "CAMPER",
+        "RUMBLE",
+        "OUTRUN",
+        "CIRCUS"
+    ],
+    "02/28/2026": [
+        "NEARBY",
+        "YONDER",
+        "QUOTED",
         "LADDER",
-        "WEIGHT"
+        "RESULT",
+        "VOLUME"
     ],
-    "01/04/2026": [
-        "DRAGON",
-        "SILVER",
-        "WIZARD",
-        "CASTLE",
-        "BOTTLE",
-        "MARKET"
+    "03/01/2026": [
+        "CRABBY",
+        "HOSTEL",
+        "SHOWER",
+        "BASKET",
+        "TROPIC",
+        "COFFEE"
     ],
-    "01/05/2026": [
-        "FLOWER",
-        "PEARLS",
-        "STRING",
-        "BASICS",
-        "GROOVE",
-        "OBJECT"
+    "03/02/2026": [
+        "ANGORA",
+        "UNIQUE",
+        "OCEANS",
+        "FLIMSY",
+        "CATNIP",
+        "CLINIC"
+    ],
+    "03/03/2026": [
+        "NUMBER",
+        "EIGHTH",
+        "EXCUSE",
+        "RECKON",
+        "POLLEN",
+        "RASCAL"
+    ],
+    "03/04/2026": [
+        "IMPAIR",
+        "SNOOZE",
+        "MITTEN",
+        "CARRESS",
+        "ENTIRE",
+        "PROTON"
+    ],
+    "03/05/2026": [
+        "KINDLE",
+        "WOMBAT",
+        "POSESS",
+        "FATHOM",
+        "DEGREE",
+        "SULFUR"
+    ],
+    "03/06/2026": [
+        "WATERY",
+        "URGENT",
+        "IDEATE",
+        "JOINER",
+        "ASPECT",
+        "ENOUGH"
+    ],
+    "03/07/2026": [
+        "VOYEUR",
+        "NAMELY",
+        "PUNCHY",
+        "QUAINT",
+        "WEALTH",
+        "OPENLY"
+    ],
+    "03/08/2026": [
+        "JESTER",
+        "WOBBLE",
+        "ANYHOW",
+        "ARMFUL",
+        "CHERUB",
+        "SHRILL"
+    ],
+    "03/09/2026": [
+        "INDIGO",
+        "ODIOUS",
+        "BOILER",
+        "DUGOUT",
+        "CHOICE",
+        "WHIMSY"
+    ],
+    "03/10/2026": [
+        "TATTOO",
+        "AWNING",
+        "PREFIX",
+        "UNWELL",
+        "BRONZE",
+        "DELUXE"
+    ],
+    "03/11/2026": [
+        "ICICLE",
+        "UNREAL",
+        "DISMAY",
+        "AVOIDS",
+        "HAIRDO",
+        "OFFICE"
+    ],
+    "03/12/2026": [
+        "EFFECT",
+        "ODDITY",
+        "TRIAGE",
+        "MORTAL",
+        "JUNIOR",
+        "OYSTER"
+    ],
+    "03/13/2026": [
+        "VERSUS",
+        "JINGLE",
+        "UNCOOL",
+        "SCYTHE",
+        "GOSSIP",
+        "AGEISM"
+    ],
+    "03/14/2026": [
+        "QUINOA",
+        "FUNGUS",
+        "RUEFUL",
+        "DEFANG",
+        "FAMISH",
+        "YEARLY"
+    ],
+    "03/15/2026": [
+        "LEGUME",
+        "NEARLY",
+        "KEGGER",
+        "LAMENT",
+        "BIKING",
+        "SHROUD"
+    ],
+    "03/16/2026": [
+        "JIGGLE",
+        "OUTAGE",
+        "HAMPER",
+        "FUMBLE",
+        "UNROLL",
+        "DECREE"
+    ],
+    "03/17/2026": [
+        "QUARRY",
+        "VULGAR",
+        "QUIVER",
+        "BURROW",
+        "JETSKI",
+        "BUBBLY"
+    ],
+    "03/18/2026": [
+        "NAUSEA",
+        "KIBBLE",
+        "MOTION",
+        "GROWLY",
+        "MATRIX",
+        "GAMBIT"
+    ],
+    "03/19/2026": [
+        "HANGER",
+        "RUNNER",
+        "LINEAR",
+        "FINGER",
+        "BEAKER",
+        "DETOUR"
+    ],
+    "03/20/2026": [
+        "IGNORE",
+        "OCCULT",
+        "FROZEN",
+        "TRANCE",
+        "STUDIO",
+        "EXOTIC"
+    ],
+    "03/21/2026": [
+        "KEEPER",
+        "YEASTY",
+        "MURDER",
+        "SCONCE",
+        "CURFEW",
+        "BEFALL"
+    ],
+    "03/22/2026": [
+        "TRIVET",
+        "SAILOR",
+        "NOISES",
+        "DOLLOP",
+        "EGGNOG",
+        "HUNTER"
+    ],
+    "03/23/2026": [
+        "GAMBLE",
+        "DARKER",
+        "JALOPY",
+        "BANANA",
+        "UNSEXY",
+        "NOTARY"
+    ],
+    "03/24/2026": [
+        "KISSER",
+        "RISKED",
+        "ARCADE",
+        "JUNKET",
+        "ESCHEW",
+        "ORCHID"
+    ],
+    "03/25/2026": [
+        "VELOUR",
+        "ROOKIE",
+        "ISLAND",
+        "SVELTE",
+        "MULLET",
+        "TOASTY"
+    ],
+    "03/26/2026": [
+        "TUFFET",
+        "VEXING",
+        "LONELY",
+        "PARDON",
+        "ICEBOX",
+        "ASSIGN"
+    ],
+    "03/27/2026": [
+        "GNARLY",
+        "ZESTER",
+        "ABLAZE",
+        "SLEAZY",
+        "SPRITZ",
+        "DYNAMO"
+    ],
+    "03/28/2026": [
+        "NOTIFY",
+        "QUENCH",
+        "METRIC",
+        "MAMMAL",
+        "ASLEEP",
+        "UNPLUG"
+    ],
+    "03/29/2026": [
+        "HOLDUP",
+        "JETSAM",
+        "PUCKER",
+        "KETTLE",
+        "SUFFIX",
+        "ETHNIC"
+    ],
+    "03/30/2026": [
+        "LIMPID",
+        "VACUUM",
+        "NEPHEW",
+        "POODLE",
+        "ESCROW",
+        "SPRUNG"
+    ],
+    "03/31/2026": [
+        "FIXATE",
+        "RAPPEL",
+        "UNUSED",
+        "CONCUR",
+        "BUSIER",
+        "INVENT"
+    ],
+    "04/01/2026": [
+        "DIAPER",
+        "NEWTON",
+        "GOBLET",
+        "FIBULA",
+        "ONIONY",
+        "EMBARK"
+    ],
+    "04/02/2026": [
+        "INFAMY",
+        "GNOMES",
+        "KICKER",
+        "SCHISM",
+        "SPRITE",
+        "FICKLE"
+    ],
+    "04/03/2026": [
+        "JAGUAR",
+        "QUEUED",
+        "QUINCE",
+        "ORACLE",
+        "QUAVER",
+        "YAMMER"
+    ],
+    "04/04/2026": [
+        "VIOLIN",
+        "KARATE",
+        "WONDER",
+        "WINDUP",
+        "COGNAC",
+        "SCRAWL"
+    ],
+    "04/05/2026": [
+        "MOJITO",
+        "BUMBLE",
+        "FORGOT",
+        "SCAMPI",
+        "VERTEX",
+        "LAWYER"
+    ],
+    "04/06/2026": [
+        "URCHIN",
+        "INDICT",
+        "PLAQUE",
+        "HARBOR",
+        "APPALL",
+        "THRONE"
+    ],
+    "04/07/2026": [
+        "WEEKLY",
+        "EASILY",
+        "ZAPPED",
+        "EQUIPT",
+        "ZENITH",
+        "OCTOPI"
+    ],
+    "04/08/2026": [
+        "OBJECT",
+        "KRAKEN",
+        "YANKED",
+        "UPSELL",
+        "CYBORG",
+        "JERSEY"
+    ],
+    "04/09/2026": [
+        "GAMBOL",
+        "LUSTER",
+        "RUINED",
+        "JOSTLE",
+        "MADCAP",
+        "RUDDER"
     ]
 }
