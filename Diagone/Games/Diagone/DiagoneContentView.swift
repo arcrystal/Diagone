@@ -328,27 +328,53 @@ struct DiagoneContentView: View {
     }
 
     // MARK: - Chip Pane
-    /// Calculates an approximate cell size for chips based on the available width.
-    /// Chips are drawn diagonally which increases their bounding box. We estimate
-    /// the denominator by summing the lengths (1–5) multiplied by √2 and add
-    /// small spacing between chips. This yields a cell size that fits all chips
-    /// neatly on one row. Both rows share the same cell size.
+
+    /// Constant gap between chips in the pane
+    private var chipGap: CGFloat { 4 }
+
+    /// Fixed horizontal margin for chip pane (equal on both sides)
+    private var chipPaneMargin: CGFloat { 20 }
+
+    /// Calculates the span (width/height) for a chip of given length
+    private func chipSpan(length: Int, cellSize: CGFloat) -> CGFloat {
+        let tileSize = cellSize * 0.85
+        let step = tileSize * 0.72
+        return step * CGFloat(length - 1) + tileSize
+    }
+
+    /// Calculates the vertical offset to align visual centers of diagonal chips.
+    /// The visual center of a diagonal is at the middle tile (or midpoint between middle tiles).
+    /// For length n, visual center Y = (n-1)/2 * step + tileSize/2
+    /// To align all to the 5-tile center, offset = (5 - n) * step / 2
+    private func chipVerticalOffset(length: Int, cellSize: CGFloat) -> CGFloat {
+        let tileSize = cellSize * 0.85
+        let step = tileSize * 0.72
+        return CGFloat(5 - length) * step / 2
+    }
+
+    /// Calculates cell size for chips based on available width.
+    /// Uses proportional spacing where each chip takes space based on its actual size.
     private func computeChipCellSize(totalWidth: CGFloat) -> CGFloat {
-        // We lay chips in 5 uniform slots (equal left-edge pitch). Fit the longest chip (len=5)
-        // into a single slot so nothing overlaps, leaving a small visual margin.
-        let slots = 5.0
-        let pitch = Double(totalWidth) / slots
-        let longest = sqrt(2.0) * 5.0 // width factor for length-5 chip
-        let margin = 1.1
-        let cell = pitch * margin / longest
-        return CGFloat(cell)
+        // Sum of span factors for lengths 1-5:
+        // span(n) = tileSize * (1 + 0.72 * (n-1)) where tileSize = cellSize * 0.85
+        // Total factor = 0.85 * (1 + 1.72 + 2.44 + 3.16 + 3.88) = 0.85 * 12.2 ≈ 10.37
+        let tileFactor: CGFloat = 0.85
+        let stepFactor: CGFloat = 0.72
+        var totalSpanFactor: CGFloat = 0
+        for length in 1...5 {
+            totalSpanFactor += tileFactor * (1 + stepFactor * CGFloat(length - 1))
+        }
+        // Available width = total width minus equal margins on both sides minus gaps between chips
+        let availableWidth = totalWidth - (2 * chipPaneMargin) - (4 * chipGap)
+        return availableWidth / totalSpanFactor
     }
 
     @ViewBuilder
     private func chipPane(width: CGFloat) -> some View {
         let cellSize = computeChipCellSize(totalWidth: width)
-        let usable = width * 0.75
-        let slotWidth = usable / 5.0 // uniform left-edge pitch
+
+        // Max height is the 5-letter chip span
+        let maxChipHeight = chipSpan(length: 5, cellSize: cellSize)
 
         // Prepare rows: for each length 1...5, take first chip and second chip
         let groups = Dictionary(grouping: viewModel.engine.state.pieces, by: \.length)
@@ -362,32 +388,43 @@ struct DiagoneContentView: View {
         let row1Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.first }
         let row2Opt: [GamePiece?] = (1...5).map { groups[$0].map(sorted)?.dropFirst().first }
 
-        VStack(spacing: cellSize * 0.2) {
-            // Each chip sits in a fixed-width slot (`slotWidth`) so the left edges are uniformly spaced.
-            // Chips are leading-aligned inside their slots; sizes vary but no overlap occurs.
-            HStack(spacing: 0) {
+        VStack(spacing: 8) {
+            // Row 1: chips aligned by visual center of diagonal
+            HStack(alignment: .top, spacing: chipGap) {
                 ForEach(0..<5, id: \.self) { i in
+                    let length = i + 1
+                    let span = chipSpan(length: length, cellSize: cellSize)
+                    let vOffset = chipVerticalOffset(length: length, cellSize: cellSize)
                     if let p = row1Opt[i] {
                         ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
-                            .frame(width: slotWidth, alignment: .leading)
+                            .frame(width: span, height: span, alignment: .topLeading)
+                            .padding(.top, vOffset)
+                            .frame(height: maxChipHeight, alignment: .top)
                     } else {
                         Color.clear
-                            .frame(width: slotWidth, height: cellSize * 1.6, alignment: .leading)
+                            .frame(width: span, height: maxChipHeight)
                     }
                 }
             }
-            HStack(spacing: 0) {
+            // Row 2: same layout
+            HStack(alignment: .top, spacing: chipGap) {
                 ForEach(0..<5, id: \.self) { i in
+                    let length = i + 1
+                    let span = chipSpan(length: length, cellSize: cellSize)
+                    let vOffset = chipVerticalOffset(length: length, cellSize: cellSize)
                     if let p = row2Opt[i] {
                         ChipView(piece: p, cellSize: cellSize, hidden: !viewModel.started)
-                            .frame(width: slotWidth, alignment: .leading)
+                            .frame(width: span, height: span, alignment: .topLeading)
+                            .padding(.top, vOffset)
+                            .frame(height: maxChipHeight, alignment: .top)
                     } else {
                         Color.clear
-                            .frame(width: slotWidth, height: cellSize * 1.6, alignment: .leading)
+                            .frame(width: span, height: maxChipHeight)
                     }
                 }
             }
         }
+        .padding(.horizontal, chipPaneMargin)
     }
 
 
